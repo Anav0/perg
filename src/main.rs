@@ -1,66 +1,88 @@
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
 use std::io;
 use std::process;
 
-enum Symbol {
-    Number,
-    Text(String),
+type TransitionTable = HashMap<usize, HashMap<char, usize>>;
+
+struct NFA {
+    transitions: TransitionTable,
+    initial_state: usize,
+    final_states: HashSet<usize>,
 }
 
-struct Pattern {
-    source: Vec<char>,
-    index: usize,
-    length: usize,
-}
-
-impl Pattern {
-    pub fn new(source: &str) -> Self {
+impl NFA {
+    pub fn new(
+        initial_state: usize,
+        final_states: HashSet<usize>,
+        transitions: TransitionTable,
+    ) -> Self {
         Self {
-            source: source.chars().collect(),
-            index: 0,
-            length: 0,
+            transitions,
+            initial_state,
+            final_states,
         }
+    }
+
+    pub fn find_match(&self, text: &str) -> bool {
+        let mut current_state = self.initial_state;
+        for c in text.chars() {
+            current_state = *self
+                .transitions
+                .get(&current_state)
+                .unwrap()
+                .get(&c)
+                .unwrap();
+        }
+        self.final_states.contains(&current_state)
     }
 }
 
-impl Iterator for Pattern {
-    type Item = Symbol;
+pub fn and(a: &NFA, b: &NFA) -> NFA {
+    todo!();
+}
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut buffer: Vec<char> = Vec::with_capacity(16);
+pub fn or(a: &NFA, b: &NFA) -> NFA {
+    todo!();
+}
 
-        for i in self.index..self.source.len() {
-            let char = self.source[i];
-            self.index += 1;
-
-            let symbol = match buffer.as_slice() {
-                ['\\', 'd'] => Some(Symbol::Number),
-                _ => None,
-            };
-
-            if symbol.is_some() {
-                return symbol;
-            }
-
-            buffer.push(char);
-        }
-
-        None
-    }
+enum Regex {
+    Many,
+    Number,
+    Symbol(char),
 }
 
 fn match_pattern(input_line: &str, raw_pattern: &str) -> bool {
-    let mut pattern = Pattern::new(raw_pattern);
-
-    for symbol in pattern {}
+    // a*b*
+    // Many(Symbol('a')) + Many(Symbol('b'))
+    // a\da
+    // Symbol('a') + Number + Symbol('a')
+    // for symbol in raw_pattern {}
 
     false
 }
 
-// Usage: echo <input_text> | your_program.sh -E <pattern>
 fn main() {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    println!("Logs from your program will appear here!");
+    //
+    let transitions: TransitionTable = HashMap::from([
+        (0, HashMap::from([('a', 1), ('b', 0)])),
+        (1, HashMap::from([('a', 1), ('b', 1)])),
+    ]);
+
+    let nfa = NFA::new(0, HashSet::from([1]), transitions);
+
+    let tests = vec![("aa", true), ("a", true), ("b", false), ("bbb", false)];
+    for (text, expected) in tests {
+        let result = nfa.find_match(text);
+        println!("nfa({text}) = {result} | {expected}");
+    }
+
+    assert!(nfa.find_match("a"));
+    assert!(nfa.find_match("aa"));
+    assert_eq!(nfa.find_match("ab"), false);
+
+    return;
 
     if env::args().nth(1).unwrap() != "-E" {
         println!("Expected first argument to be '-E'");
