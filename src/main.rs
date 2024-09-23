@@ -305,11 +305,38 @@ mod tests {
     fn four_symbols() {
         let nfa = concat(concat(symbol('a'), symbol('b')), symbol('c'));
 
-        println!("{}", nfa);
-
         let tests = vec![
             ("abc", true),
             ("abcc", false),
+            ("c", false),
+            ("cc", false),
+            ("abb", false),
+            ("a", false),
+            ("b", false),
+            ("", false),
+            ("ba", false),
+            ("bc", false),
+        ];
+
+        for (text, expected) in tests {
+            let result = nfa.find_match(text);
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn concat_concatenation() {
+        //abcc
+        let nfa = concat(
+            concat(symbol('a'), symbol('b')),
+            concat(symbol('c'), symbol('c')),
+        );
+
+        println!("{}", nfa);
+
+        let tests = vec![
+            ("abcc", true),
+            ("abc", false),
             ("c", false),
             ("cc", false),
             ("abb", false),
