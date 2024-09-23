@@ -163,7 +163,7 @@ impl NFA {
     }
 }
 
-pub fn single(c: char) -> NFA {
+pub fn symbol(c: char) -> NFA {
     let initial_state = Rc::new(RefCell::new(State::new(format!("initial_{c}"), vec![])));
     let final_state = Rc::new(RefCell::new(State::new(format!("final_{c}"), vec![])));
     let failed_state = Rc::new(RefCell::new(State::new(format!("failed_{c}"), vec![])));
@@ -185,7 +185,7 @@ pub fn single(c: char) -> NFA {
 }
 
 pub fn empty() -> NFA {
-    single(EPLISON)
+    symbol(EPLISON)
 }
 
 pub fn concat(mut a: NFA, mut b: NFA) -> NFA {
@@ -259,9 +259,9 @@ fn main() {
 mod tests {
     use super::*;
 
-    // #[test]
+    #[test]
     fn single_symbol() {
-        let nfa = single('a');
+        let nfa = symbol('a');
 
         let tests = vec![
             ("a", true),
@@ -283,12 +283,35 @@ mod tests {
 
     #[test]
     fn two_symbols() {
-        let nfa = concat(single('a'), single('b'));
+        let nfa = concat(symbol('a'), symbol('b'));
+
+        let tests = vec![
+            ("ab", true),
+            ("abb", false),
+            ("a", false),
+            ("b", false),
+            ("", false),
+            ("ba", false),
+            ("bc", false),
+        ];
+
+        for (text, expected) in tests {
+            let result = nfa.find_match(text);
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn four_symbols() {
+        let nfa = concat(concat(symbol('a'), symbol('b')), symbol('c'));
 
         println!("{}", nfa);
 
         let tests = vec![
-            ("ab", true),
+            ("abc", true),
+            ("abcc", false),
+            ("c", false),
+            ("cc", false),
             ("abb", false),
             ("a", false),
             ("b", false),
