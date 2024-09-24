@@ -192,6 +192,14 @@ pub fn empty() -> NFA {
     symbol(EPLISON)
 }
 
+pub fn union(mut a: NFA, mut b: NFA) -> NFA {
+    todo!()
+}
+
+pub fn kleen(mut a: NFA) -> NFA {
+    todo!()
+}
+
 pub fn concat(mut a: NFA, mut b: NFA) -> NFA {
     a.states.append(&mut b.states);
 
@@ -204,7 +212,47 @@ pub fn concat(mut a: NFA, mut b: NFA) -> NFA {
     a
 }
 
+fn regex_to_nfa(regex: &str) -> NFA {
+    let normalized = shunting_yard(regex);
+    let mut nfa_queque: VecDeque<NFA> = VecDeque::new();
+    for c in normalized.chars() {
+        match c {
+            KLEEN => {
+                let a = nfa_queque
+                    .pop_back()
+                    .expect("Not enough NFA to star operation");
+
+                nfa_queque.push_back(kleen(a));
+            }
+            CONCAT => {
+                let a = nfa_queque
+                    .pop_back()
+                    .expect("Not enough NFA to perform concatenation");
+                let b = nfa_queque
+                    .pop_back()
+                    .expect("Not enough NFA to perform concatenation");
+                nfa_queque.push_back(concat(a, b));
+            }
+            UNION => {
+                let a = nfa_queque
+                    .pop_back()
+                    .expect("Not enough NFA to perform union");
+                let b = nfa_queque
+                    .pop_back()
+                    .expect("Not enough NFA to perform union");
+                nfa_queque.push_back(union(a, b));
+            }
+            _ => {
+                nfa_queque.push_back(symbol(c));
+            }
+        }
+    }
+    todo!()
+}
+
 fn match_pattern(input_line: &str, raw_pattern: &str) -> bool {
+    let nfa = regex_to_nfa(raw_pattern);
+
     false
 }
 
