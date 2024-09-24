@@ -193,7 +193,41 @@ pub fn empty() -> NFA {
 }
 
 pub fn union(mut a: NFA, mut b: NFA) -> NFA {
-    todo!()
+    a.states.append(&mut b.states);
+
+    let transitions = vec![
+        Transition::new(EPLISON, a.initial_state),
+        Transition::new(EPLISON, b.initial_state),
+    ];
+
+    let new_inital_state = Rc::new(RefCell::new(State::new(
+        "initial_n".to_string(),
+        transitions,
+    )));
+
+    a.states.push(new_inital_state);
+    a.initial_state = Rc::clone(&a.states[a.states.len() - 1]);
+
+    // New final state
+    let new_final_state = Rc::new(RefCell::new(State::new("final_n", vec![])));
+    a.states.push(new_final_state);
+
+    for final_state in &a.final_states {
+        let mut final_state_borrowed = (*final_state).borrow_mut();
+        final_state_borrowed.add_transition(EPLISON, &a.states[a.states.len() - 1]);
+    }
+
+    for final_state in &b.final_states {
+        let mut final_state_borrowed = (*final_state).borrow_mut();
+        final_state_borrowed.add_transition(EPLISON, &a.states[a.states.len() - 1]);
+    }
+
+    a.final_states.clear();
+
+    a.final_states
+        .push(Rc::clone(&a.states[a.states.len() - 1]));
+
+    a
 }
 
 pub fn kleen(mut a: NFA) -> NFA {
@@ -497,5 +531,10 @@ mod tests {
             println!("Test input: '{text}'");
             assert_eq!(result, expected);
         }
+    }
+
+    #[test]
+    fn union_test() {
+        let nfa = union(symbol('a'), symbol('b'));
     }
 }
