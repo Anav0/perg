@@ -319,22 +319,33 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn shunting_yard_empty_input() {
+        let output = shunting_yard("");
+        assert_eq!(output, String::from(""));
+    }
 
     #[test]
-    fn shunting_yard_test_1() {
+    fn shunting_yard_concat_of_groups() {
+        let output = shunting_yard("(ab)(ab)");
+        assert_eq!(output, String::from("ab?ab??"));
+    }
+
+    #[test]
+    fn shunting_yard_complex_example() {
         let output = shunting_yard("a(a+b)*b");
         // assert_eq!(output, String::from("aab+*?b?"));
         assert_eq!(output, String::from("aab+*?b"));
     }
 
     #[test]
-    fn shunting_yard_test_2() {
+    fn shunting_yard_concat() {
         let output = shunting_yard("ab");
         assert_eq!(output, String::from("ab?"));
     }
 
     #[test]
-    fn shunting_yard_test_3() {
+    fn shunting_yard_union() {
         let output = shunting_yard("a+b");
         assert_eq!(output, String::from("ab+"));
     }
