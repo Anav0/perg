@@ -1,6 +1,7 @@
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::env;
@@ -15,6 +16,9 @@ use std::rc::Rc;
 type RcMut<T> = Rc<RefCell<T>>;
 
 const EPLISON: char = '$';
+const CONCAT: char = '?';
+const UNION: char = '+';
+const KLEEN: char = '*';
 const ANY_CHAR: char = '&';
 
 pub struct Transition {
@@ -200,41 +204,98 @@ pub fn concat(mut a: NFA, mut b: NFA) -> NFA {
     a
 }
 
-// Constructs NFA for single symbol like 'a' or 'b'
-// pub fn symbol<R: RangeBounds<usize>>(c: char, occurences: R) -> NFA {
-//     let mut transitions: TransitionTable = BTreeMap::new();
-
-//     let mut start = 0;
-//     let mut end = 0;
-
-//     match occurences.end_bound() {
-//         std::ops::Bound::Included(v) => end = *v,
-//         std::ops::Bound::Excluded(v) => end = *v,
-//         std::ops::Bound::Unbounded => end = 0,
-//     }
-
-//     match occurences.start_bound() {
-//         std::ops::Bound::Included(v) => start = *v,
-//         std::ops::Bound::Excluded(v) => start = *v,
-//         std::ops::Bound::Unbounded => start = 0,
-//     }
-
-//     if end == 0 {
-//         //TODO: handle ay number of characters
-//         todo!()
-//     }
-
-//     todo!()
-// }
-
 fn match_pattern(input_line: &str, raw_pattern: &str) -> bool {
-    // a*b*
-    // Many(Symbol('a')) + Many(Symbol('b'))
-    // a\da
-    // Symbol('a') + Number + Symbol('a')
-    // for symbol in raw_pattern {}
-
     false
+}
+
+fn shunting_yard(regex: &str) -> String {
+    let mut operators = VecDeque::new();
+    let mut output = Vec::new();
+    let precedence: HashMap<char, u8> =
+        HashMap::from([('(', 0), (')', 0), (KLEEN, 4), (UNION, 2), (CONCAT, 3)]);
+
+    fn insert_operator_and_reshuffle(
+        output: &mut Vec<char>,
+        operators: &mut VecDeque<char>,
+        precedence: &HashMap<char, u8>,
+        operator: char,
+    ) {
+        if operators.is_empty() {
+            operators.push_back(operator);
+        } else {
+            loop {
+                let top_operator = operators.pop_back();
+
+                if top_operator.is_none() {
+                    break;
+                }
+
+                let top_operator = top_operator.unwrap();
+
+                if precedence.get(&top_operator).unwrap() >= precedence.get(&operator).unwrap() {
+                    output.push(top_operator);
+                } else {
+                    operators.push_back(top_operator);
+                    operators.push_back(operator);
+                    break;
+                }
+            }
+        }
+    }
+
+    let mut prev_symbol: Option<char> = None;
+    for c in regex.chars() {
+        let should_concat = prev_symbol
+            .is_some_and(|prev_c| prev_c.is_alphanumeric() || prev_c == KLEEN || prev_c == ')');
+        let mut did_concat = false;
+        match c {
+            KLEEN | UNION | CONCAT => {
+                if operators.is_empty() {
+                    operators.push_back(c);
+                } else {
+                    insert_operator_and_reshuffle(&mut output, &mut operators, &precedence, c);
+                }
+            }
+            '(' => {
+                if should_concat {
+                    insert_operator_and_reshuffle(&mut output, &mut operators, &precedence, CONCAT);
+                    did_concat = true;
+                }
+                operators.push_back(c);
+            }
+            ')' => loop {
+                let operator = operators
+                    .pop_back()
+                    .expect("No more symbols!, cannot find matching parenthesis");
+
+                if operator == '(' {
+                    break;
+                }
+
+                output.push(operator);
+            },
+            _ => {
+                if should_concat {
+                    insert_operator_and_reshuffle(&mut output, &mut operators, &precedence, CONCAT);
+                    did_concat = true;
+                }
+                output.push(c);
+            }
+        };
+
+        if did_concat {
+            prev_symbol = Some(CONCAT);
+        } else {
+            prev_symbol = Some(c);
+        }
+    }
+
+    while !operators.is_empty() {
+        let operator = operators.pop_back().unwrap();
+        output.push(operator);
+    }
+
+    output.into_iter().collect()
 }
 
 fn main() {
@@ -258,6 +319,25 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shunting_yard_test_1() {
+        let output = shunting_yard("a(a+b)*b");
+        // assert_eq!(output, String::from("aab+*?b?"));
+        assert_eq!(output, String::from("aab+*?b"));
+    }
+
+    #[test]
+    fn shunting_yard_test_2() {
+        let output = shunting_yard("ab");
+        assert_eq!(output, String::from("ab?"));
+    }
+
+    #[test]
+    fn shunting_yard_test_3() {
+        let output = shunting_yard("a+b");
+        assert_eq!(output, String::from("ab+"));
+    }
 
     #[test]
     fn single_symbol() {
