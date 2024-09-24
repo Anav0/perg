@@ -275,60 +275,42 @@ fn insert_concat_symbol(regex: &str) -> String {
     output.into_iter().collect()
 }
 
-fn shunting_yard(regex: &str) -> String {
+fn shunting_yard(raw_regex: &str) -> String {
     let mut operators = VecDeque::new();
     let mut output = Vec::new();
     let precedence: HashMap<char, u8> =
         HashMap::from([('(', 0), (')', 0), (KLEEN, 4), (UNION, 2), (CONCAT, 3)]);
 
-    fn insert_operator_and_reshuffle(
-        output: &mut Vec<char>,
-        operators: &mut VecDeque<char>,
-        precedence: &HashMap<char, u8>,
-        operator: char,
-    ) {
-        if operators.is_empty() {
-            operators.push_back(operator);
-        } else {
-            loop {
-                let top_operator = operators.pop_back();
+    let regex = insert_concat_symbol(raw_regex);
 
-                if top_operator.is_none() {
-                    break;
-                }
-
-                let top_operator = top_operator.unwrap();
-
-                if precedence.get(&top_operator).unwrap() >= precedence.get(&operator).unwrap() {
-                    output.push(top_operator);
-                } else {
-                    operators.push_back(top_operator);
-                    operators.push_back(operator);
-                    break;
-                }
-            }
-        }
-    }
-
-    let mut prev_symbol: Option<char> = None;
     for c in regex.chars() {
-        let should_concat = prev_symbol
-            .is_some_and(|prev_c| prev_c.is_alphanumeric() || prev_c == KLEEN || prev_c == ')');
-        let mut did_concat = false;
+        println!("{c} | {:?} {:?}", output, operators);
         match c {
             KLEEN | UNION | CONCAT => {
                 if operators.is_empty() {
                     operators.push_back(c);
                 } else {
-                    insert_operator_and_reshuffle(&mut output, &mut operators, &precedence, c);
+                    loop {
+                        let top_operator = operators.pop_back();
+
+                        if top_operator.is_none() {
+                            break;
+                        }
+
+                        let top_operator = top_operator.unwrap();
+
+                        if precedence.get(&top_operator).unwrap() >= precedence.get(&c).unwrap() {
+                            output.push(top_operator);
+                        } else {
+                            operators.push_back(top_operator);
+                            break;
+                        }
+                    }
+
+                    operators.push_back(c);
                 }
             }
             '(' => {
-                if should_concat {
-                    println!("? | {:?} {:?}", output, operators);
-                    insert_operator_and_reshuffle(&mut output, &mut operators, &precedence, CONCAT);
-                    did_concat = true;
-                }
                 operators.push_back(c);
             }
             ')' => loop {
@@ -343,20 +325,9 @@ fn shunting_yard(regex: &str) -> String {
                 output.push(operator);
             },
             _ => {
-                if should_concat {
-                    insert_operator_and_reshuffle(&mut output, &mut operators, &precedence, CONCAT);
-                    println!("? | {:?} {:?}", output, operators);
-                    did_concat = true;
-                }
                 output.push(c);
             }
         };
-        println!("{c} | {:?} {:?}", output, operators);
-        if did_concat {
-            prev_symbol = Some(CONCAT);
-        } else {
-            prev_symbol = Some(c);
-        }
     }
 
     while !operators.is_empty() {
@@ -418,7 +389,6 @@ mod tests {
     #[test]
     fn shunting_yard_complex_example() {
         let output = shunting_yard("a(a+b)*b");
-        // assert_eq!(output, String::from("aab+*?b?"));
         assert_eq!(output, String::from("aab+*?b?"));
     }
 
