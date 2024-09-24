@@ -256,6 +256,25 @@ fn match_pattern(input_line: &str, raw_pattern: &str) -> bool {
     false
 }
 
+fn insert_concat_symbol(regex: &str) -> String {
+    let mut prev_symbol: Option<char> = None;
+    let mut output: Vec<char> = vec![];
+    for c in regex.chars() {
+        let can_concat = c == '(' || c.is_alphanumeric();
+        let should_concat = can_concat
+            && prev_symbol
+                .is_some_and(|prev_c| prev_c.is_alphanumeric() || prev_c == KLEEN || prev_c == ')');
+
+        if should_concat {
+            output.push(CONCAT);
+        }
+        output.push(c);
+        prev_symbol = Some(c);
+    }
+
+    output.into_iter().collect()
+}
+
 fn shunting_yard(regex: &str) -> String {
     let mut operators = VecDeque::new();
     let mut output = Vec::new();
@@ -306,6 +325,7 @@ fn shunting_yard(regex: &str) -> String {
             }
             '(' => {
                 if should_concat {
+                    println!("? | {:?} {:?}", output, operators);
                     insert_operator_and_reshuffle(&mut output, &mut operators, &precedence, CONCAT);
                     did_concat = true;
                 }
@@ -325,12 +345,13 @@ fn shunting_yard(regex: &str) -> String {
             _ => {
                 if should_concat {
                     insert_operator_and_reshuffle(&mut output, &mut operators, &precedence, CONCAT);
+                    println!("? | {:?} {:?}", output, operators);
                     did_concat = true;
                 }
                 output.push(c);
             }
         };
-
+        println!("{c} | {:?} {:?}", output, operators);
         if did_concat {
             prev_symbol = Some(CONCAT);
         } else {
@@ -368,6 +389,21 @@ fn main() {
 mod tests {
     use super::*;
     #[test]
+    fn insert_concat_no_insert_needed() {
+        assert_eq!("a", insert_concat_symbol("a"));
+    }
+
+    #[test]
+    fn insert_concat_two_symbols() {
+        assert_eq!("a?b", insert_concat_symbol("ab"));
+    }
+
+    #[test]
+    fn insert_concat_complex() {
+        assert_eq!("a?(a+b)*?b", insert_concat_symbol("a(a+b)*b"));
+    }
+
+    #[test]
     fn shunting_yard_empty_input() {
         let output = shunting_yard("");
         assert_eq!(output, String::from(""));
@@ -383,7 +419,7 @@ mod tests {
     fn shunting_yard_complex_example() {
         let output = shunting_yard("a(a+b)*b");
         // assert_eq!(output, String::from("aab+*?b?"));
-        assert_eq!(output, String::from("aab+*?b"));
+        assert_eq!(output, String::from("aab+*?b?"));
     }
 
     #[test]
