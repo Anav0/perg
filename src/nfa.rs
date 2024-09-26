@@ -8,6 +8,7 @@ pub const EPLISON: char = 'ε';
 pub const CONCAT: char = '?';
 pub const UNION: char = '+';
 pub const KLEEN: char = '*';
+pub const ANY_DIGIT: char = '#';
 pub const ANY_CHAR: char = '&';
 
 #[derive(Debug)]
@@ -134,15 +135,17 @@ impl NFA {
                         any_character_transition = Some(transition);
                     }
 
-                    if transition.on == c {
+                    if transition.on == c || (transition.on == ANY_DIGIT && c.is_numeric()) {
                         matches_given_char = true;
                         let appended_state = Rc::clone(&transition.to);
                         states_for_next_symbol.push(appended_state.clone());
                     }
                 }
+
                 if !matches_given_char && any_character_transition.is_some() {
                     states_for_next_symbol.push(Rc::clone(&any_character_transition.unwrap().to));
                 }
+
                 i += 1;
             }
 
@@ -172,6 +175,10 @@ impl NFA {
 
         false
     }
+}
+
+pub fn digit() -> NFA {
+    symbol(ANY_DIGIT)
 }
 
 pub fn symbol(c: char) -> NFA {
@@ -302,6 +309,32 @@ mod tests {
         ];
 
         for (text, expected) in tests {
+            let result = nfa.find_match(text);
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn find_match_digits() {
+        let nfa = digit();
+
+        let tests = vec![
+            ("0", true),
+            ("1", true),
+            ("9", true),
+            ("a", false),
+            ("aa", false),
+            ("", false),
+            ("aaa", false),
+            ("aaaa", false),
+            ("aaaaa", false),
+            ("ba", false),
+            ("bba", false),
+            ("bbaa", false),
+        ];
+
+        for (text, expected) in tests {
+            println!("{text} {expected}");
             let result = nfa.find_match(text);
             assert_eq!(result, expected);
         }

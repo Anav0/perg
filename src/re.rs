@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::nfa::{concat, kleen, symbol, union, CONCAT, KLEEN, NFA, UNION};
+use crate::nfa::{concat, digit, kleen, symbol, union, CONCAT, KLEEN, NFA, UNION};
 
 fn insert_concat_symbol(regex: &str) -> String {
     let mut prev_symbol: Option<char> = None;
@@ -86,8 +86,23 @@ fn shunting_yard(raw_regex: &str) -> String {
 pub fn regex_to_nfa(regex: &str) -> NFA {
     let normalized = shunting_yard(regex);
     let mut nfa_queque: VecDeque<NFA> = VecDeque::new();
-    for c in normalized.chars() {
-        match c {
+    let mut symbols = normalized.chars().peekable();
+    let mut c = symbols.next();
+
+    while c.is_some() {
+        match c.unwrap() {
+            '\\' => {
+                let next_symbol = symbols.peek().expect("Nothing follows '\' symbol");
+                let nfa: Option<NFA> = match *next_symbol {
+                    'd' => Some(digit()),
+                    _ => None,
+                };
+
+                if nfa.is_some() {
+                    nfa_queque.push_back(nfa.unwrap());
+                    symbols.next();
+                }
+            }
             KLEEN => {
                 let a = nfa_queque
                     .pop_back()
@@ -114,9 +129,11 @@ pub fn regex_to_nfa(regex: &str) -> NFA {
                 nfa_queque.push_back(union(a, b));
             }
             _ => {
-                nfa_queque.push_back(symbol(c));
+                nfa_queque.push_back(symbol(c.unwrap()));
             }
         }
+
+        c = symbols.next();
     }
 
     nfa_queque.pop_back().expect("No NFA to pop!")
