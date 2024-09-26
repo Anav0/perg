@@ -326,6 +326,7 @@ mod tests {
             ("0", true),
             ("1", true),
             ("11231231321312", true),
+            ("123", true),
             ("999", true),
             ("9", true),
             ("a", false),
