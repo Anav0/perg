@@ -345,6 +345,7 @@ mod tests {
             assert_eq!(result, expected);
         }
     }
+
     #[test]
     fn find_match_digit() {
         let nfa = digit();
