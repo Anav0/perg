@@ -57,15 +57,6 @@ impl State {
         let transition = Transition::new(on, Rc::clone(to));
         self.transitions.push(transition);
     }
-    pub fn get_states_on(&self, c: char) -> Vec<RcMut<State>> {
-        let mut output = vec![];
-        for trans in &self.transitions {
-            if trans.on == c {
-                output.push(Rc::clone(&trans.to));
-            }
-        }
-        output
-    }
 }
 
 #[derive(Clone, Debug)]
