@@ -480,6 +480,35 @@ mod tests {
     }
 
     #[test]
+    fn find_match_all_operators() {
+        let nfa = kleen(union(
+            symbol('0'),
+            union(
+                concat(symbol('1'), symbol('1')),
+                concat(
+                    concat(symbol('1'), symbol('0')),
+                    concat(
+                        kleen(union(concat(symbol('0'), symbol('0')), symbol('1'))),
+                        concat(symbol('0'), symbol('1')),
+                    ),
+                ),
+            ),
+        ));
+        let tests = vec![
+            ("11", true),
+            ("100", false),
+            ("101", false),
+            ("110", true),
+            ("1", false),
+            ("100001", true),
+        ];
+
+        for (text, expected) in tests {
+            let result = nfa.find_match(text);
+            assert_eq!(result, expected);
+        }
+    }
+    #[test]
     fn single_symbol() {
         let nfa = symbol('a');
 
