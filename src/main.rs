@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 type RcMut<T> = Rc<RefCell<T>>;
 
-const EPLISON: char = '$';
+const EPLISON: char = 'ε';
 const CONCAT: char = '?';
 const UNION: char = '+';
 const KLEEN: char = '*';
@@ -122,18 +122,23 @@ impl NFA {
     }
 
     pub fn find_match(&self, text: &str) -> bool {
-        let mut states_to_simulate: Vec<RcMut<State>> = vec![Rc::clone(&self.initial_state)];
-        let mut states_to_append: Vec<RcMut<State>> = vec![];
+        let mut states_for_curr_symbol: Vec<RcMut<State>> = vec![Rc::clone(&self.initial_state)];
+        let mut states_for_next_symbol: Vec<RcMut<State>> = vec![];
 
         for c in text.chars() {
-            for state in &states_to_simulate {
-                let current_state = Rc::clone(&state);
+            let mut i = 0;
+            while i < states_for_curr_symbol.len() {
+                let current_state = Rc::clone(&states_for_curr_symbol[i]);
 
                 let current_state_borrowed = (*current_state).borrow();
                 let mut any_character_transition: Option<&Transition> = None;
 
                 let mut matches_given_char = false;
                 for transition in &current_state_borrowed.transitions {
+                    if transition.on == EPLISON {
+                        states_for_curr_symbol.push(Rc::clone(&transition.to));
+                    }
+
                     if transition.on == ANY_CHAR {
                         any_character_transition = Some(transition);
                     }
@@ -141,22 +146,33 @@ impl NFA {
                     if transition.on == c {
                         matches_given_char = true;
                         let appended_state = Rc::clone(&transition.to);
-                        let appended_state_borrow = (*appended_state).borrow();
-                        let mut epsilon_states = appended_state_borrow.get_states_on(EPLISON);
-                        states_to_append.append(&mut epsilon_states);
-                        states_to_append.push(appended_state.clone());
+                        states_for_next_symbol.push(appended_state.clone());
                     }
                 }
                 if !matches_given_char && any_character_transition.is_some() {
-                    states_to_append.push(Rc::clone(&any_character_transition.unwrap().to));
+                    states_for_next_symbol.push(Rc::clone(&any_character_transition.unwrap().to));
+                }
+                i += 1;
+            }
+
+            states_for_curr_symbol = states_for_next_symbol.clone();
+            states_for_next_symbol.clear();
+        }
+
+        let mut i = 0;
+        while i < states_for_curr_symbol.len() {
+            let state = Rc::clone(&states_for_curr_symbol[i]);
+            let current_state = (*state).borrow();
+            for transition in &current_state.transitions {
+                if transition.on == EPLISON {
+                    states_for_curr_symbol.push(Rc::clone(&transition.to));
                 }
             }
-            states_to_simulate = states_to_append.clone();
-            states_to_append.clear();
+            i += 1;
         }
 
         for final_state in &self.final_states {
-            for state in &states_to_simulate {
+            for state in &states_for_curr_symbol {
                 if Rc::ptr_eq(final_state, state) {
                     return true;
                 }
@@ -194,39 +210,35 @@ pub fn empty() -> NFA {
 
 pub fn union(mut a: NFA, mut b: NFA) -> NFA {
     a.states.append(&mut b.states);
-
-    let transitions = vec![
-        Transition::new(EPLISON, a.initial_state),
-        Transition::new(EPLISON, b.initial_state),
-    ];
-
-    let new_inital_state = Rc::new(RefCell::new(State::new(
-        "initial_n".to_string(),
-        transitions,
-    )));
-
+    let new_inital_state = Rc::new(RefCell::new(State::new("initial_n".to_string(), vec![])));
+    {
+        let mut new_initial_state_borrowed = (*new_inital_state).borrow_mut();
+        new_initial_state_borrowed.add_transition(EPLISON, &a.initial_state);
+        new_initial_state_borrowed.add_transition(EPLISON, &b.initial_state);
+    }
     a.states.push(new_inital_state);
     a.initial_state = Rc::clone(&a.states[a.states.len() - 1]);
 
-    // New final state
     let new_final_state = Rc::new(RefCell::new(State::new("final_n", vec![])));
     a.states.push(new_final_state);
 
+    let new_final_state = &a.states[a.states.len() - 1];
+
     for final_state in &a.final_states {
         let mut final_state_borrowed = (*final_state).borrow_mut();
-        final_state_borrowed.add_transition(EPLISON, &a.states[a.states.len() - 1]);
+        final_state_borrowed.add_transition(EPLISON, new_final_state);
     }
 
     for final_state in &b.final_states {
         let mut final_state_borrowed = (*final_state).borrow_mut();
-        final_state_borrowed.add_transition(EPLISON, &a.states[a.states.len() - 1]);
+        final_state_borrowed.add_transition(EPLISON, new_final_state);
     }
 
     a.final_states.clear();
 
-    a.final_states
-        .push(Rc::clone(&a.states[a.states.len() - 1]));
+    a.final_states.push(Rc::clone(new_final_state));
 
+    println!("{}", a);
     a
 }
 
@@ -536,5 +548,23 @@ mod tests {
     #[test]
     fn union_test() {
         let nfa = union(symbol('a'), symbol('b'));
+
+        let tests = vec![
+            ("a", true),
+            ("b", true),
+            ("c", false),
+            ("ab", false),
+            ("aa", false),
+            ("bb", false),
+            ("", false),
+            ("aab", false),
+            ("baa", false),
+        ];
+
+        for (text, expected) in tests {
+            let result = nfa.find_match(text);
+            println!("{text}");
+            assert_eq!(result, expected);
+        }
     }
 }
