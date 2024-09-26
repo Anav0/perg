@@ -177,6 +177,10 @@ impl NFA {
     }
 }
 
+pub fn digits() -> NFA {
+    concat(symbol(ANY_DIGIT), kleen(symbol(ANY_DIGIT)))
+}
+
 pub fn digit() -> NFA {
     symbol(ANY_DIGIT)
 }
@@ -316,6 +320,33 @@ mod tests {
 
     #[test]
     fn find_match_digits() {
+        let nfa = digits();
+
+        let tests = vec![
+            ("0", true),
+            ("1", true),
+            ("11231231321312", true),
+            ("999", true),
+            ("9", true),
+            ("a", false),
+            ("aa", false),
+            ("", false),
+            ("aaa", false),
+            ("aaaa", false),
+            ("aaaaa", false),
+            ("ba", false),
+            ("bba", false),
+            ("bbaa", false),
+        ];
+
+        for (text, expected) in tests {
+            println!("{text} {expected}");
+            let result = nfa.find_match(text);
+            assert_eq!(result, expected);
+        }
+    }
+    #[test]
+    fn find_match_digit() {
         let nfa = digit();
 
         let tests = vec![
