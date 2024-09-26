@@ -21,7 +21,7 @@ const UNION: char = '+';
 const KLEEN: char = '*';
 const ANY_CHAR: char = '&';
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct Transition {
     pub on: char,
     pub to: RcMut<State>,
@@ -39,7 +39,7 @@ impl fmt::Display for Transition {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct State {
     pub name: String,
     pub transitions: Vec<Transition>,
@@ -78,7 +78,7 @@ impl State {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct NFA {
     pub states: Vec<RcMut<State>>,
     pub initial_state: RcMut<State>,
@@ -646,26 +646,38 @@ mod tests {
     fn regex_to_nfa_single_char() {
         let nfa = symbol('a');
         let outcome = regex_to_nfa("a");
-        let nfa_str = nfa.to_string();
-        let outcome_str = outcome.to_string();
-        assert_eq!(nfa_str, outcome_str);
+
+        let tests = vec!["aa", "", "a", "bb", "abababa"];
+        for example in tests {
+            assert_eq!(nfa.find_match(example), outcome.find_match(example));
+        }
     }
 
     #[test]
     fn regex_to_nfa_kleen() {
         let nfa = kleen(symbol('a'));
         let outcome = regex_to_nfa("a*");
-        let nfa_str = nfa.to_string();
-        let outcome_str = outcome.to_string();
-        assert_eq!(nfa_str, outcome_str);
+
+        let tests = vec!["a", "aa", "aaa", "ab", "bbb"];
+        for example in tests {
+            assert_eq!(nfa.find_match(example), outcome.find_match(example));
+        }
     }
 
     #[test]
     fn regex_to_nfa_complex() {
         let nfa = kleen(union(concat(symbol('a'), symbol('b')), symbol('a')));
         let outcome = regex_to_nfa("(ab+a)*");
-        let nfa_str = nfa.to_string();
-        let outcome_str = outcome.to_string();
-        assert_eq!(nfa_str, outcome_str);
+        println!("{}",nfa);
+        println!("========");
+        println!("{}",outcome);
+
+        let tests = vec!["ab", "", "aa", "ababab", "bbbaaa"];
+        for example in tests {
+            println!("{example}");
+            let x = nfa.find_match(example);
+            let y = outcome.find_match(example);
+            assert_eq!(x, y);
+        }
     }
 }
