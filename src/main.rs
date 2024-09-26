@@ -238,12 +238,41 @@ pub fn union(mut a: NFA, mut b: NFA) -> NFA {
 
     a.final_states.push(Rc::clone(new_final_state));
 
-    println!("{}", a);
     a
 }
 
 pub fn kleen(mut a: NFA) -> NFA {
-    todo!()
+    {
+        let new_final_state = Rc::new(RefCell::new(State::new("final_n", vec![])));
+        a.states.push(new_final_state);
+
+        let new_final_state = a.states.last().unwrap();
+
+        for final_state in &a.final_states {
+            let mut final_state_borrowed = (*final_state).borrow_mut();
+            final_state_borrowed.add_transition(EPLISON, new_final_state);
+            final_state_borrowed.add_transition(EPLISON, &a.initial_state);
+        }
+    }
+
+    let new_inital_state = Rc::new(RefCell::new(State::new("initial_n".to_string(), vec![])));
+    {
+        let mut new_initial_state_borrowed = (*new_inital_state).borrow_mut();
+        new_initial_state_borrowed.add_transition(EPLISON, &a.initial_state);
+
+        for final_state in &a.final_states {
+            new_initial_state_borrowed.add_transition(EPLISON, final_state);
+        }
+    }
+    a.states.push(new_inital_state);
+    a.initial_state = Rc::clone(&a.states.last().unwrap());
+    a.final_states.clear();
+
+    let new_final_state = &a.states[a.states.len() - 2];
+    a.final_states.push(Rc::clone(&new_final_state));
+
+    println!("{}", a);
+    a
 }
 
 pub fn concat(mut a: NFA, mut b: NFA) -> NFA {
@@ -545,6 +574,27 @@ mod tests {
         }
     }
 
+    #[test]
+    fn kleen_test() {
+        let nfa = kleen(symbol('a'));
+
+        let tests = vec![
+            ("", true),
+            ("a", true),
+            ("aa", true),
+            ("aaa", true),
+            ("c", false),
+            ("ab", false),
+            ("b", false),
+            ("bbbbb", false),
+        ];
+
+        for (text, expected) in tests {
+            let result = nfa.find_match(text);
+            println!("{text}");
+            assert_eq!(result, expected);
+        }
+    }
     #[test]
     fn union_test() {
         let nfa = union(symbol('a'), symbol('b'));
