@@ -18,7 +18,7 @@ fn main() {
     let pattern = env::args().nth(2).unwrap();
     let mut input_line = String::new();
 
-    println!("{} {}", input_line, pattern);
+    println!("input: '{}' pattern: '{}'", input_line, pattern);
     stdin().read_line(&mut input_line).unwrap();
 
     if match_pattern(&input_line, &pattern) {
