@@ -1,15 +1,8 @@
-use std::borrow::Borrow;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::env;
 use std::fmt;
 use std::io;
-use std::io::Write;
-use std::ops::Range;
-use std::ops::RangeBounds;
 use std::process;
 use std::rc::Rc;
 
@@ -301,19 +294,19 @@ fn regex_to_nfa(regex: &str) -> NFA {
                 nfa_queque.push_back(kleen(a));
             }
             CONCAT => {
-                let a = nfa_queque
+                let b = nfa_queque
                     .pop_back()
                     .expect("Not enough NFA to perform concatenation");
-                let b = nfa_queque
+                let a = nfa_queque
                     .pop_back()
                     .expect("Not enough NFA to perform concatenation");
                 nfa_queque.push_back(concat(a, b));
             }
             UNION => {
-                let a = nfa_queque
+                let b = nfa_queque
                     .pop_back()
                     .expect("Not enough NFA to perform union");
-                let b = nfa_queque
+                let a = nfa_queque
                     .pop_back()
                     .expect("Not enough NFA to perform union");
                 nfa_queque.push_back(union(a, b));
@@ -508,8 +501,9 @@ mod tests {
             assert_eq!(result, expected);
         }
     }
+
     #[test]
-    fn single_symbol() {
+    fn find_match_single_symbol() {
         let nfa = symbol('a');
 
         let tests = vec![
@@ -531,7 +525,7 @@ mod tests {
     }
 
     #[test]
-    fn two_symbols() {
+    fn find_match_two_symbols() {
         let nfa = concat(symbol('a'), symbol('b'));
 
         let tests = vec![
@@ -551,7 +545,7 @@ mod tests {
     }
 
     #[test]
-    fn four_symbols() {
+    fn find_match_four_symbols() {
         let nfa = concat(concat(symbol('a'), symbol('b')), symbol('c'));
 
         let tests = vec![
@@ -574,7 +568,7 @@ mod tests {
     }
 
     #[test]
-    fn concat_concatenation() {
+    fn find_match_concat_concat() {
         //abcc
         let nfa = concat(
             concat(symbol('a'), symbol('b')),
@@ -601,7 +595,7 @@ mod tests {
     }
 
     #[test]
-    fn kleen_test() {
+    fn construction_kleen_test() {
         let nfa = kleen(symbol('a'));
 
         let tests = vec![
@@ -621,7 +615,7 @@ mod tests {
         }
     }
     #[test]
-    fn union_test() {
+    fn construction_union_test() {
         let nfa = union(symbol('a'), symbol('b'));
 
         let tests = vec![
@@ -665,16 +659,36 @@ mod tests {
     }
 
     #[test]
+    fn regex_to_nfa_complex_2() {
+        let outcome = regex_to_nfa("(0+11+10(00+1)*01)*");
+        let nfa = kleen(union(
+            symbol('0'),
+            union(
+                concat(symbol('1'), symbol('1')),
+                concat(
+                    concat(symbol('1'), symbol('0')),
+                    concat(
+                        kleen(union(concat(symbol('0'), symbol('0')), symbol('1'))),
+                        concat(symbol('0'), symbol('1')),
+                    ),
+                ),
+            ),
+        ));
+        let tests = vec!["11", "100", "101", "110", "1", "100001"];
+        for example in tests {
+            let x = nfa.find_match(example);
+            let y = outcome.find_match(example);
+            assert_eq!(x, y);
+        }
+    }
+
+    #[test]
     fn regex_to_nfa_complex() {
         let nfa = kleen(union(concat(symbol('a'), symbol('b')), symbol('a')));
         let outcome = regex_to_nfa("(ab+a)*");
-        println!("{}",nfa);
-        println!("========");
-        println!("{}",outcome);
 
         let tests = vec!["ab", "", "aa", "ababab", "bbbaaa"];
         for example in tests {
-            println!("{example}");
             let x = nfa.find_match(example);
             let y = outcome.find_match(example);
             assert_eq!(x, y);
