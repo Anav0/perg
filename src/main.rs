@@ -21,6 +21,7 @@ const UNION: char = '+';
 const KLEEN: char = '*';
 const ANY_CHAR: char = '&';
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct Transition {
     pub on: char,
     pub to: RcMut<State>,
@@ -38,6 +39,7 @@ impl fmt::Display for Transition {
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct State {
     pub name: String,
     pub transitions: Vec<Transition>,
@@ -76,7 +78,7 @@ impl State {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NFA {
     pub states: Vec<RcMut<State>>,
     pub initial_state: RcMut<State>,
@@ -271,7 +273,6 @@ pub fn kleen(mut a: NFA) -> NFA {
     let new_final_state = &a.states[a.states.len() - 2];
     a.final_states.push(Rc::clone(&new_final_state));
 
-    println!("{}", a);
     a
 }
 
@@ -322,7 +323,8 @@ fn regex_to_nfa(regex: &str) -> NFA {
             }
         }
     }
-    todo!()
+
+    nfa_queque.pop_back().expect("No NFA to pop!")
 }
 
 fn match_pattern(input_line: &str, raw_pattern: &str) -> bool {
@@ -359,7 +361,6 @@ fn shunting_yard(raw_regex: &str) -> String {
     let regex = insert_concat_symbol(raw_regex);
 
     for c in regex.chars() {
-        println!("{c} | {:?} {:?}", output, operators);
         match c {
             KLEEN | UNION | CONCAT => {
                 if operators.is_empty() {
@@ -415,7 +416,6 @@ fn shunting_yard(raw_regex: &str) -> String {
 
 fn main() {
     if env::args().nth(1).unwrap() != "-E" {
-        println!("Expected first argument to be '-E'");
         process::exit(1);
     }
 
@@ -581,8 +581,6 @@ mod tests {
             concat(symbol('c'), symbol('c')),
         );
 
-        println!("{}", nfa);
-
         let tests = vec![
             ("abcc", true),
             ("abc", false),
@@ -598,7 +596,6 @@ mod tests {
 
         for (text, expected) in tests {
             let result = nfa.find_match(text);
-            println!("Test input: '{text}'");
             assert_eq!(result, expected);
         }
     }
@@ -620,7 +617,6 @@ mod tests {
 
         for (text, expected) in tests {
             let result = nfa.find_match(text);
-            println!("{text}");
             assert_eq!(result, expected);
         }
     }
@@ -642,8 +638,34 @@ mod tests {
 
         for (text, expected) in tests {
             let result = nfa.find_match(text);
-            println!("{text}");
             assert_eq!(result, expected);
         }
+    }
+
+    #[test]
+    fn regex_to_nfa_single_char() {
+        let nfa = symbol('a');
+        let outcome = regex_to_nfa("a");
+        let nfa_str = nfa.to_string();
+        let outcome_str = outcome.to_string();
+        assert_eq!(nfa_str, outcome_str);
+    }
+
+    #[test]
+    fn regex_to_nfa_kleen() {
+        let nfa = kleen(symbol('a'));
+        let outcome = regex_to_nfa("a*");
+        let nfa_str = nfa.to_string();
+        let outcome_str = outcome.to_string();
+        assert_eq!(nfa_str, outcome_str);
+    }
+
+    #[test]
+    fn regex_to_nfa_complex() {
+        let nfa = kleen(union(concat(symbol('a'), symbol('b')), symbol('a')));
+        let outcome = regex_to_nfa("(ab+a)*");
+        let nfa_str = nfa.to_string();
+        let outcome_str = outcome.to_string();
+        assert_eq!(nfa_str, outcome_str);
     }
 }
