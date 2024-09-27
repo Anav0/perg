@@ -91,7 +91,7 @@ impl fmt::Display for NFA {
 
         for state in &self.states {
             let inner_value = (**state).borrow();
-            writeln!(f, "\t\"{}\"", inner_value.name)?;
+            writeln!(f, "\t\"{}\" ({:?})", inner_value.name, inner_value.kind)?;
             for trans in &inner_value.transitions {
                 writeln!(f, "\t\t{}", trans)?;
             }
@@ -116,27 +116,36 @@ impl NFA {
 
     pub fn find_match(&self, text: &str) -> bool {
         if text.len() == 0 {
-            return self.find_match_inner(text);
+            return self.find_match_inner(text, 0);
         }
 
         for k in 0..text.len() {
-            if self.find_match_inner(&text[k..]) {
+            if self.find_match_inner(&text[k..], k) {
                 return true;
             }
         }
         false
     }
 
-    fn find_match_inner(&self, text: &str) -> bool {
+    fn find_match_inner(&self, text: &str, start_index: usize) -> bool {
         let mut states_for_curr_symbol: Vec<RcMut<State>> = vec![Rc::clone(&self.initial_state)];
         let mut states_for_next_symbol: Vec<RcMut<State>> = vec![];
 
+        let mut final_index: Option<usize> = None;
+        let mut k = 0;
         for c in text.chars() {
             let mut i = 0;
             while i < states_for_curr_symbol.len() {
                 let current_state = Rc::clone(&states_for_curr_symbol[i]);
 
                 let current_state_borrowed = (*current_state).borrow();
+
+                match current_state_borrowed.kind {
+                    StateKind::Final => {
+                        final_index = Some(start_index + k);
+                    }
+                    _ => {}
+                }
 
                 let mut any_character_transition: Option<&Transition> = None;
 
@@ -162,6 +171,17 @@ impl NFA {
                 }
 
                 i += 1;
+            }
+            k += 1;
+
+            if final_index.is_some() {
+                println!(
+                    "Found pattern in: '{}' from: '{}:{}'",
+                    text,
+                    start_index,
+                    final_index.unwrap()
+                );
+                return true;
             }
 
             states_for_curr_symbol = states_for_next_symbol.clone();
@@ -324,6 +344,7 @@ pub fn concat(mut a: NFA, mut b: NFA) -> NFA {
     for final_state in a.final_states {
         let mut final_state_borrowed = (*final_state).borrow_mut();
         final_state_borrowed.add_transition(EPLISON, &b.initial_state);
+        final_state_borrowed.kind = StateKind::Normal;
     }
     a.final_states = b.final_states;
 
@@ -332,6 +353,8 @@ pub fn concat(mut a: NFA, mut b: NFA) -> NFA {
 
 #[cfg(test)]
 mod tests {
+    use crate::re::regex_to_nfa;
+
     use super::*;
 
     #[test]
@@ -361,6 +384,20 @@ mod tests {
             let result = nfa.find_match(text);
             assert_eq!(result, expected);
         }
+    }
+
+    #[test]
+    fn ala_test() {
+        let nfa = symbol('b');
+        nfa.find_match("ali baba ali baba");
+    }
+
+    #[test]
+    fn ala_test_2() {
+        let nfa = concat(symbol('a'), symbol('b'));
+        println!("{}", nfa);
+        nfa.find_match("Co za baba");
+        //-------------------0123456789
     }
 
     #[test]
@@ -438,7 +475,7 @@ mod tests {
 
         let tests = vec![
             ("ab", true),
-            ("abb", false),
+            ("abb", true),
             ("a", false),
             ("b", false),
             ("", false),
@@ -458,7 +495,7 @@ mod tests {
 
         let tests = vec![
             ("abc", true),
-            ("abcc", false),
+            ("abcc", true),
             ("c", false),
             ("cc", false),
             ("abb", false),
@@ -507,11 +544,11 @@ mod tests {
         let nfa = kleen(symbol('a'));
 
         let tests = vec![
+            ("c", false),
             ("", true),
             ("a", true),
             ("aa", true),
             ("aaa", true),
-            ("c", false),
             ("ab", false),
             ("b", false),
             ("bbbbb", false),
@@ -519,7 +556,10 @@ mod tests {
 
         for (text, expected) in tests {
             let result = nfa.find_match(text);
-            println!("'{}' expected: '{}'", text, expected);
+            println!(
+                "Input: '{}' expected: '{}', result: '{}'",
+                text, expected, result
+            );
             assert_eq!(result, expected);
         }
     }
