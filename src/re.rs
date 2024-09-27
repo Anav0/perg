@@ -1,6 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::nfa::{concat, digit, digits, kleen, symbol, union, CONCAT, KLEEN, NFA, UNION};
+use crate::nfa::{
+    alphanumeric, concat, digit, digits, kleen, symbol, union, CONCAT, KLEEN, NFA, UNION,
+};
 
 fn insert_concat_symbol(regex: &str) -> String {
     let mut prev_symbol: Option<char> = None;
@@ -95,6 +97,7 @@ pub fn regex_to_nfa(regex: &str) -> NFA {
                 let next_symbol = symbols.peek().expect("Nothing follows '\' symbol");
                 let nfa: Option<NFA> = match *next_symbol {
                     'd' => Some(digits()),
+                    'w' => Some(alphanumeric()),
                     _ => None,
                 };
 
@@ -188,6 +191,17 @@ mod tests {
     fn shunting_yard_union() {
         let output = shunting_yard("a+b");
         assert_eq!(output, String::from("ab+"));
+    }
+
+    #[test]
+    fn regex_to_nfa_alphanumeric() {
+        let nfa = alphanumeric();
+        let outcome = regex_to_nfa("\\w");
+
+        let tests = vec!["0", "123", "aa", "", "a", "bb", "abababa"];
+        for example in tests {
+            assert_eq!(nfa.find_match(example), outcome.find_match(example));
+        }
     }
 
     #[test]

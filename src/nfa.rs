@@ -9,6 +9,7 @@ pub const CONCAT: char = '?';
 pub const UNION: char = '+';
 pub const KLEEN: char = '*';
 pub const ANY_DIGIT: char = '#';
+pub const ANY_ALPHANUMERIC: char = '=';
 pub const ANY_CHAR: char = '&';
 
 #[derive(Debug)]
@@ -159,7 +160,10 @@ impl NFA {
                         any_character_transition = Some(transition);
                     }
 
-                    if transition.on == c || (transition.on == ANY_DIGIT && c.is_numeric()) {
+                    if transition.on == c
+                        || (transition.on == ANY_DIGIT && c.is_numeric())
+                        || (transition.on == ANY_ALPHANUMERIC && c.is_alphanumeric())
+                    {
                         matches_given_char = true;
                         let appended_state = Rc::clone(&transition.to);
                         states_for_next_symbol.push(appended_state.clone());
@@ -214,6 +218,10 @@ impl NFA {
 
 pub fn digits() -> NFA {
     concat(symbol(ANY_DIGIT), kleen(symbol(ANY_DIGIT)))
+}
+
+pub fn alphanumeric() -> NFA {
+    symbol(ANY_ALPHANUMERIC)
 }
 
 pub fn digit() -> NFA {
@@ -357,6 +365,30 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn find_match_alphanumeric() {
+        let nfa = alphanumeric();
+
+        let tests = vec![
+            ("", false),
+            ("0", true),
+            ("1", true),
+            ("11231231321312", true),
+            ("123", true),
+            ("999", true),
+            ("9", true),
+            ("a", true),
+            ("aa", true),
+            ("aaa", true),
+            ("śćźż", true),
+        ];
+
+        for (text, expected) in tests {
+            println!("{text} {expected}");
+            let result = nfa.find_match(text);
+            assert_eq!(result, expected);
+        }
+    }
     #[test]
     fn find_match_digits() {
         let nfa = digits();
