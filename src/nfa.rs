@@ -216,6 +216,56 @@ impl NFA {
     }
 }
 
+pub fn set_of_chars(chars: &Vec<char>) -> NFA {
+    /*
+    if chars.len() <= 0 {
+        panic!("Needs at least one char");
+    }
+
+    let mut nfa = symbol(chars[0]);
+
+    for i in 1..chars.len() {
+        nfa = union(nfa, symbol(chars[i]));
+    }
+
+    nfa
+    */
+
+    let initial_state = Rc::new(RefCell::new(State::new(
+        format!("initial"),
+        vec![],
+        StateKind::Initial,
+    )));
+    let final_state = Rc::new(RefCell::new(State::new(
+        format!("final"),
+        vec![],
+        StateKind::Final,
+    )));
+    let failed_state = Rc::new(RefCell::new(State::new(
+        format!("failed"),
+        vec![],
+        StateKind::Failed,
+    )));
+
+    let states = vec![initial_state, final_state, failed_state];
+
+    for c in chars {
+        //From initial to final
+        states[0].borrow_mut().add_transition(*c, &states[1]);
+    }
+
+    //From initial to failed
+    states[0].borrow_mut().add_transition(ANY_CHAR, &states[2]);
+    //from final to failed
+    states[1].borrow_mut().add_transition(ANY_CHAR, &states[2]);
+
+    let starting_state = Rc::clone(&states[0]);
+
+    let final_states = vec![Rc::clone(&states[1])];
+
+    NFA::new(states, starting_state, final_states)
+}
+
 pub fn digits() -> NFA {
     concat(symbol(ANY_DIGIT), kleen(symbol(ANY_DIGIT)))
 }
@@ -455,6 +505,31 @@ mod tests {
         for (text, expected) in tests {
             println!("{text} {expected}");
             let result = nfa.find_match(text);
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn find_match_character_sets() {
+        let nfa = regex_to_nfa("[abc]");
+
+        let tests = vec![
+            ("a", true),
+            ("b", true),
+            ("c", true),
+            ("cc", true),
+            ("bb", true),
+            ("aa", true),
+            ("", false),
+            ("x", false),
+            ("xa", true),
+            ("xb", true),
+            ("xc", true),
+        ];
+
+        for (text, expected) in tests {
+            let result = nfa.find_match(text);
+            println!("'{}' expected '{}'", text, expected);
             assert_eq!(result, expected);
         }
     }

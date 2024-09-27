@@ -1,17 +1,26 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::nfa::{
-    alphanumeric, concat, digit, digits, kleen, symbol, union, CONCAT, KLEEN, NFA, UNION,
+    alphanumeric, concat, digit, digits, kleen, set_of_chars, symbol, union, CONCAT, KLEEN, NFA,
+    UNION,
 };
 
 fn insert_concat_symbol(regex: &str) -> String {
     let mut prev_symbol: Option<char> = None;
     let mut output: Vec<char> = vec![];
+    let mut is_in_char_set = false;
     for c in regex.chars() {
-        let can_concat = c == '(' || c.is_alphanumeric();
+        if c == '[' {
+            is_in_char_set = true;
+        }
+        if c == ']' {
+            is_in_char_set = false;
+        }
+        let can_concat = (c == '(' || c.is_alphanumeric()) && !is_in_char_set;
         let should_concat = can_concat
-            && prev_symbol
-                .is_some_and(|prev_c| prev_c.is_alphanumeric() || prev_c == KLEEN || prev_c == ')');
+            && prev_symbol.is_some_and(|prev_c| {
+                prev_c.is_alphanumeric() || prev_c == KLEEN || prev_c == ')' || prev_c == ']'
+            });
 
         if should_concat {
             output.push(CONCAT);
@@ -31,9 +40,17 @@ fn shunting_yard(raw_regex: &str) -> String {
 
     let regex = insert_concat_symbol(raw_regex);
 
+    let mut is_in_char_set = false;
     for c in regex.chars() {
         match c {
-            KLEEN | UNION | CONCAT => {
+            ']' => {
+                is_in_char_set = false;
+                output.push(c);
+            }
+            _ if is_in_char_set => {
+                output.push(c);
+            }
+            KLEEN | UNION | CONCAT if !is_in_char_set => {
                 if operators.is_empty() {
                     operators.push_back(c);
                 } else {
@@ -57,6 +74,11 @@ fn shunting_yard(raw_regex: &str) -> String {
                     operators.push_back(c);
                 }
             }
+            '[' => {
+                is_in_char_set = true;
+                output.push(c);
+            }
+
             '(' => {
                 operators.push_back(c);
             }
@@ -91,8 +113,23 @@ pub fn regex_to_nfa(regex: &str) -> NFA {
     let mut symbols = normalized.chars().peekable();
     let mut c = symbols.next();
 
+    let mut is_in_char_group = false;
+    let mut character_set: Vec<char> = vec![];
     while c.is_some() {
         match c.unwrap() {
+            ']' => {
+                let nfa = set_of_chars(&character_set);
+                println!("{}", nfa);
+                nfa_queque.push_back(nfa);
+                character_set.clear();
+                is_in_char_group = false;
+            }
+            _ if is_in_char_group => {
+                character_set.push(c.unwrap());
+            }
+            '[' => {
+                is_in_char_group = true;
+            }
             '\\' => {
                 let next_symbol = symbols.peek().expect("Nothing follows '\' symbol");
                 let nfa: Option<NFA> = match *next_symbol {
@@ -159,6 +196,21 @@ mod tests {
     }
 
     #[test]
+    fn insert_concat_ignore_char_sets() {
+        assert_eq!("[abc]", insert_concat_symbol("[abc]"));
+    }
+
+    #[test]
+    fn insert_concat_ignore_char_sets_and_nothing_else_1() {
+        assert_eq!("[abc]?a", insert_concat_symbol("[abc]a"));
+    }
+
+    #[test]
+    fn insert_concat_ignore_char_sets_and_nothing_else() {
+        assert_eq!("[abc]?a+b", insert_concat_symbol("[abc]a+b"));
+    }
+
+    #[test]
     fn insert_concat_complex() {
         assert_eq!("a?(a+b)*?b", insert_concat_symbol("a(a+b)*b"));
     }
@@ -167,6 +219,18 @@ mod tests {
     fn shunting_yard_empty_input() {
         let output = shunting_yard("");
         assert_eq!(output, String::from(""));
+    }
+
+    #[test]
+    fn shunting_yard_ignore_character_groups() {
+        let output = shunting_yard("[abc]");
+        assert_eq!(output, String::from("[abc]"));
+    }
+
+    #[test]
+    fn shunting_yard_ignore_character_groups_and_nothing_else_1() {
+        let output = shunting_yard("[abc]a");
+        assert_eq!(output, String::from("[abc]a?"));
     }
 
     #[test]
@@ -182,6 +246,12 @@ mod tests {
     }
 
     #[test]
+    fn shunting_yard_concat_with_char_set() {
+        let output = shunting_yard("[ab]?c");
+        assert_eq!(output, String::from("[ab]c?"));
+    }
+
+    #[test]
     fn shunting_yard_concat() {
         let output = shunting_yard("ab");
         assert_eq!(output, String::from("ab?"));
@@ -191,6 +261,18 @@ mod tests {
     fn shunting_yard_union() {
         let output = shunting_yard("a+b");
         assert_eq!(output, String::from("ab+"));
+    }
+
+    #[test]
+    fn regex_to_nfa_character_set() {
+        let nfa = set_of_chars(&vec!['a', 'b', 'c']);
+        let outcome = regex_to_nfa("[abc]");
+
+        let tests = vec!["a", "b", "c", "ab", "ac", "abc", "", "xyz"];
+        for example in tests {
+            println!("{}", example);
+            assert_eq!(nfa.find_match(example), outcome.find_match(example));
+        }
     }
 
     #[test]
