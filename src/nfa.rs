@@ -30,9 +30,18 @@ impl fmt::Display for Transition {
 }
 
 #[derive(Debug)]
+pub enum StateKind {
+    Normal,
+    Failed,
+    Initial,
+    Final,
+}
+
+#[derive(Debug)]
 pub struct State {
     pub name: String,
     pub transitions: Vec<Transition>,
+    pub kind: StateKind,
 }
 
 impl fmt::Display for State {
@@ -46,10 +55,11 @@ impl fmt::Display for State {
 }
 
 impl State {
-    pub fn new<S: Into<String>>(name: S, transitions: Vec<Transition>) -> Self {
+    pub fn new<S: Into<String>>(name: S, transitions: Vec<Transition>, kind: StateKind) -> Self {
         Self {
             name: name.into(),
             transitions,
+            kind,
         }
     }
 
@@ -117,7 +127,7 @@ impl NFA {
         false
     }
 
-    pub fn find_match_inner(&self, text: &str) -> bool {
+    fn find_match_inner(&self, text: &str) -> bool {
         let mut states_for_curr_symbol: Vec<RcMut<State>> = vec![Rc::clone(&self.initial_state)];
         let mut states_for_next_symbol: Vec<RcMut<State>> = vec![];
 
@@ -127,6 +137,7 @@ impl NFA {
                 let current_state = Rc::clone(&states_for_curr_symbol[i]);
 
                 let current_state_borrowed = (*current_state).borrow();
+
                 let mut any_character_transition: Option<&Transition> = None;
 
                 let mut matches_given_char = false;
@@ -190,9 +201,21 @@ pub fn digit() -> NFA {
 }
 
 pub fn symbol(c: char) -> NFA {
-    let initial_state = Rc::new(RefCell::new(State::new(format!("initial_{c}"), vec![])));
-    let final_state = Rc::new(RefCell::new(State::new(format!("final_{c}"), vec![])));
-    let failed_state = Rc::new(RefCell::new(State::new(format!("failed_{c}"), vec![])));
+    let initial_state = Rc::new(RefCell::new(State::new(
+        format!("initial_{c}"),
+        vec![],
+        StateKind::Initial,
+    )));
+    let final_state = Rc::new(RefCell::new(State::new(
+        format!("final_{c}"),
+        vec![],
+        StateKind::Final,
+    )));
+    let failed_state = Rc::new(RefCell::new(State::new(
+        format!("failed_{c}"),
+        vec![],
+        StateKind::Failed,
+    )));
 
     let states = vec![initial_state, final_state, failed_state];
 
@@ -212,7 +235,11 @@ pub fn symbol(c: char) -> NFA {
 
 pub fn union(mut a: NFA, mut b: NFA) -> NFA {
     a.states.append(&mut b.states);
-    let new_inital_state = Rc::new(RefCell::new(State::new("initial_n".to_string(), vec![])));
+    let new_inital_state = Rc::new(RefCell::new(State::new(
+        "initial_n".to_string(),
+        vec![],
+        StateKind::Initial,
+    )));
     {
         let mut new_initial_state_borrowed = (*new_inital_state).borrow_mut();
         new_initial_state_borrowed.add_transition(EPLISON, &a.initial_state);
@@ -221,7 +248,11 @@ pub fn union(mut a: NFA, mut b: NFA) -> NFA {
     a.states.push(new_inital_state);
     a.initial_state = Rc::clone(&a.states[a.states.len() - 1]);
 
-    let new_final_state = Rc::new(RefCell::new(State::new("final_n", vec![])));
+    let new_final_state = Rc::new(RefCell::new(State::new(
+        "final_n",
+        vec![],
+        StateKind::Final,
+    )));
     a.states.push(new_final_state);
 
     let new_final_state = &a.states[a.states.len() - 1];
@@ -229,11 +260,13 @@ pub fn union(mut a: NFA, mut b: NFA) -> NFA {
     for final_state in &a.final_states {
         let mut final_state_borrowed = (*final_state).borrow_mut();
         final_state_borrowed.add_transition(EPLISON, new_final_state);
+        final_state_borrowed.kind = StateKind::Normal;
     }
 
     for final_state in &b.final_states {
         let mut final_state_borrowed = (*final_state).borrow_mut();
         final_state_borrowed.add_transition(EPLISON, new_final_state);
+        final_state_borrowed.kind = StateKind::Normal;
     }
 
     a.final_states.clear();
@@ -245,7 +278,11 @@ pub fn union(mut a: NFA, mut b: NFA) -> NFA {
 
 pub fn kleen(mut a: NFA) -> NFA {
     {
-        let new_final_state = Rc::new(RefCell::new(State::new("final_n", vec![])));
+        let new_final_state = Rc::new(RefCell::new(State::new(
+            "final_n",
+            vec![],
+            StateKind::Final,
+        )));
         a.states.push(new_final_state);
 
         let new_final_state = a.states.last().unwrap();
@@ -254,10 +291,15 @@ pub fn kleen(mut a: NFA) -> NFA {
             let mut final_state_borrowed = (*final_state).borrow_mut();
             final_state_borrowed.add_transition(EPLISON, new_final_state);
             final_state_borrowed.add_transition(EPLISON, &a.initial_state);
+            final_state_borrowed.kind = StateKind::Normal;
         }
     }
 
-    let new_inital_state = Rc::new(RefCell::new(State::new("initial_n".to_string(), vec![])));
+    let new_inital_state = Rc::new(RefCell::new(State::new(
+        "initial_n".to_string(),
+        vec![],
+        StateKind::Initial,
+    )));
     {
         let mut new_initial_state_borrowed = (*new_inital_state).borrow_mut();
         new_initial_state_borrowed.add_transition(EPLISON, &a.initial_state);
