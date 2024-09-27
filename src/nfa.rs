@@ -346,6 +346,26 @@ mod tests {
             assert_eq!(result, expected);
         }
     }
+    #[test]
+    fn find_match_first_symbol() {
+        let nfa = symbol('d');
+
+        let tests = vec![
+            ("dog", true),
+            ("dom", true),
+            ("aa", false),
+            ("", false),
+            ("aaa", false),
+            ("aaaa", false),
+            ("aaaaa", false),
+        ];
+
+        for (text, expected) in tests {
+            let result = nfa.find_match(text);
+            println!("'{}' expected '{}'", text, expected);
+            assert_eq!(result, expected);
+        }
+    }
 
     #[test]
     fn find_match_single_symbol() {
