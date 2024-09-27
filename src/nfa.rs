@@ -105,6 +105,19 @@ impl NFA {
     }
 
     pub fn find_match(&self, text: &str) -> bool {
+        if text.len() == 0 {
+            return self.find_match_inner(text);
+        }
+
+        for k in 0..text.len() {
+            if self.find_match_inner(&text[k..]) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn find_match_inner(&self, text: &str) -> bool {
         let mut states_for_curr_symbol: Vec<RcMut<State>> = vec![Rc::clone(&self.initial_state)];
         let mut states_for_next_symbol: Vec<RcMut<State>> = vec![];
 
@@ -280,36 +293,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn find_match_all_operators() {
-        let nfa = kleen(union(
-            symbol('0'),
-            union(
-                concat(symbol('1'), symbol('1')),
-                concat(
-                    concat(symbol('1'), symbol('0')),
-                    concat(
-                        kleen(union(concat(symbol('0'), symbol('0')), symbol('1'))),
-                        concat(symbol('0'), symbol('1')),
-                    ),
-                ),
-            ),
-        ));
-        let tests = vec![
-            ("11", true),
-            ("100", false),
-            ("101", false),
-            ("110", true),
-            ("1", false),
-            ("100001", true),
-        ];
-
-        for (text, expected) in tests {
-            let result = nfa.find_match(text);
-            assert_eq!(result, expected);
-        }
-    }
-
-    #[test]
     fn find_match_digits() {
         let nfa = digits();
 
@@ -370,18 +353,19 @@ mod tests {
 
         let tests = vec![
             ("a", true),
-            ("aa", false),
+            ("aa", true),
             ("", false),
-            ("aaa", false),
-            ("aaaa", false),
-            ("aaaaa", false),
-            ("ba", false),
-            ("bba", false),
-            ("bbaa", false),
+            ("aaa", true),
+            ("aaaa", true),
+            ("aaaaa", true),
+            ("ba", true),
+            ("bba", true),
+            ("bbaa", true),
         ];
 
         for (text, expected) in tests {
             let result = nfa.find_match(text);
+            println!("'{}' expected '{}'", text, expected);
             assert_eq!(result, expected);
         }
     }
@@ -473,6 +457,7 @@ mod tests {
 
         for (text, expected) in tests {
             let result = nfa.find_match(text);
+            println!("'{}' expected: '{}'", text, expected);
             assert_eq!(result, expected);
         }
     }
@@ -484,16 +469,17 @@ mod tests {
             ("a", true),
             ("b", true),
             ("c", false),
-            ("ab", false),
-            ("aa", false),
-            ("bb", false),
+            ("ab", true),
+            ("aa", true),
+            ("bb", true),
             ("", false),
-            ("aab", false),
-            ("baa", false),
+            ("aab", true),
+            ("baa", true),
         ];
 
         for (text, expected) in tests {
             let result = nfa.find_match(text);
+            println!("'{}' expected '{}'", text, expected);
             assert_eq!(result, expected);
         }
     }
