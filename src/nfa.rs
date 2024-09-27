@@ -362,6 +362,7 @@ mod tests {
         let nfa = digits();
 
         let tests = vec![
+            ("", false),
             ("0", true),
             ("1", true),
             ("11231231321312", true),
@@ -430,6 +431,8 @@ mod tests {
         let nfa = symbol('d');
 
         let tests = vec![
+            ("", false),
+            (" ", false),
             ("dog", true),
             ("dom", true),
             ("aa", false),
@@ -451,6 +454,8 @@ mod tests {
         let nfa = symbol('a');
 
         let tests = vec![
+            ("", false),
+            (" ", false),
             ("a", true),
             ("aa", true),
             ("", false),
@@ -474,6 +479,8 @@ mod tests {
         let nfa = concat(symbol('a'), symbol('b'));
 
         let tests = vec![
+            ("", false),
+            (" ", false),
             ("ab", true),
             ("abb", true),
             ("a", false),
