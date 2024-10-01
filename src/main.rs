@@ -1,6 +1,7 @@
 use clap::{command, Parser};
+use nfa::FileMatch;
 use re::regex_to_nfa;
-use std::{env, fs, io::stdin, process};
+use std::{env, fs, io::stdin, path::PathBuf, process};
 
 mod nfa;
 mod re;
@@ -23,14 +24,11 @@ struct Args {
     #[arg(short = 'p')]
     pattern: String,
 
+    #[arg(short = 'C', long, default_value_t = 1)]
+    context: u8,
+
     #[arg(default_value_t = String::new())]
     input: String,
-}
-
-fn match_pattern(input_line: &str, raw_pattern: &str) -> bool {
-    let nfa = regex_to_nfa(raw_pattern);
-
-    nfa.find_match(input_line)
 }
 
 fn main() {
@@ -38,12 +36,15 @@ fn main() {
 
     let mut input = args.input;
     if !args.path_to_pattern_file.is_empty() {
-        input = fs::read_to_string(args.path_to_pattern_file).expect("Failed to read input file");
+        input = fs::read_to_string(&args.path_to_pattern_file).expect("Failed to read input file");
     }
 
-    if match_pattern(&input, &args.pattern) {
-        process::exit(0)
-    } else {
-        process::exit(1)
-    }
+    let nfa = regex_to_nfa(&args.pattern);
+    let matches = nfa.find_matches(&input);
+    let file_match = FileMatch {
+        file_path: Some(PathBuf::from(&args.path_to_pattern_file)),
+        matches,
+    };
+
+    file_match.print_matches()
 }

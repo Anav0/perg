@@ -1,6 +1,10 @@
+use colored::*;
 use std::cell::RefCell;
-use std::fmt;
+use std::fs::File;
+use std::io::BufRead;
+use std::path::PathBuf;
 use std::rc::Rc;
+use std::{fmt, fs, io};
 
 type RcMut<T> = Rc<RefCell<T>>;
 
@@ -77,6 +81,62 @@ pub struct NFA {
     pub final_states: Vec<RcMut<State>>,
 }
 
+#[derive(Debug)]
+pub struct Match {
+    pub from: usize,
+    pub to: usize,
+    pub line: usize,
+}
+
+#[derive(Debug)]
+pub struct FileMatch {
+    pub file_path: Option<PathBuf>,
+    pub matches: Vec<Match>,
+}
+
+impl FileMatch {
+    pub fn print_matches(&self) {
+        if self.file_path.is_none() {
+            return;
+        }
+
+        let path = self.file_path.as_ref().unwrap();
+        let file = File::open(path).expect(&format!(
+            "Failed to read file: '{}'",
+            path.to_str().unwrap()
+        ));
+
+        println!("{}", path.to_str().unwrap().blue());
+        let reader = io::BufReader::new(file);
+
+        let lines: Vec<_> = reader.lines().collect();
+        let max_match = self.matches.iter().max_by_key(|x| x.line).unwrap();
+
+        let line_number_col_size = max_match.line.to_string().len();
+
+        for m in &self.matches {
+            let err_msg = format!(
+                "Failed to read line: '{}' from: '{}' line",
+                m.line,
+                path.to_str().unwrap(),
+            );
+
+            let line = lines[m.line].as_ref().expect(&err_msg);
+
+            let before = &line[..m.from];
+            let matched = &line[m.from..m.to];
+            let after = &line[m.to..];
+            println!(
+                "{:<line_number_col_size$} {}{}{}",
+                (m.line + 1).to_string().green(),
+                before,
+                matched.red(),
+                after
+            );
+        }
+    }
+}
+
 impl fmt::Display for NFA {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut final_states_names = vec![];
@@ -115,6 +175,24 @@ impl NFA {
         }
     }
 
+    pub fn find_matches(&self, text: &str) -> Vec<Match> {
+        if text.len() == 0 {
+            return vec![];
+        }
+
+        let mut all_matches: Vec<Match> = vec![];
+        let lines = text.split('\n');
+        for (line_number, line) in lines.enumerate() {
+            for (k, _) in line.char_indices() {
+                let mut matches = self.find_matches_inner(&line[k..], k, line_number);
+                if !matches.is_empty() {
+                    all_matches.append(&mut matches);
+                }
+            }
+        }
+        all_matches
+    }
+
     pub fn find_match(&self, text: &str) -> bool {
         if text.len() == 0 {
             return self.find_match_inner(text, 0);
@@ -126,6 +204,83 @@ impl NFA {
             }
         }
         false
+    }
+
+    fn find_matches_inner(&self, text: &str, start_index: usize, line_number: usize) -> Vec<Match> {
+        let mut matches = vec![];
+        let mut states_for_curr_symbol: Vec<RcMut<State>> = vec![Rc::clone(&self.initial_state)];
+        let mut states_for_next_symbol: Vec<RcMut<State>> = vec![];
+
+        let mut final_index: Option<usize> = None;
+        for (k, c) in text.char_indices() {
+            let mut i = 0;
+            while i < states_for_curr_symbol.len() {
+                let current_state = Rc::clone(&states_for_curr_symbol[i]);
+
+                let current_state_borrowed = (*current_state).borrow();
+
+                match current_state_borrowed.kind {
+                    StateKind::Final => {
+                        final_index = Some(start_index + k);
+                    }
+                    _ => {}
+                }
+
+                let mut any_character_transition: Option<&Transition> = None;
+
+                let mut matches_given_char = false;
+                for transition in &current_state_borrowed.transitions {
+                    if transition.on == EPLISON {
+                        states_for_curr_symbol.push(Rc::clone(&transition.to));
+                    }
+
+                    if transition.on == ANY_OTHER_CHAR {
+                        any_character_transition = Some(transition);
+                    }
+
+                    if transition.on == c
+                        || (transition.on == ANY_DIGIT && c.is_numeric())
+                        || (transition.on == ANY_ALPHANUMERIC && c.is_alphanumeric())
+                    {
+                        matches_given_char = true;
+                        let appended_state = Rc::clone(&transition.to);
+                        states_for_next_symbol.push(appended_state.clone());
+                    }
+                }
+
+                if !matches_given_char && any_character_transition.is_some() {
+                    states_for_next_symbol.push(Rc::clone(&any_character_transition.unwrap().to));
+                }
+
+                i += 1;
+            }
+
+            if final_index.is_some() {
+                matches.push(Match {
+                    from: start_index,
+                    to: final_index.unwrap(),
+                    line: line_number,
+                });
+                final_index = None;
+            }
+
+            states_for_curr_symbol = states_for_next_symbol.clone();
+            states_for_next_symbol.clear();
+        }
+
+        let mut i = 0;
+        while i < states_for_curr_symbol.len() {
+            let state = Rc::clone(&states_for_curr_symbol[i]);
+            let current_state = (*state).borrow();
+            for transition in &current_state.transitions {
+                if transition.on == EPLISON {
+                    states_for_curr_symbol.push(Rc::clone(&transition.to));
+                }
+            }
+            i += 1;
+        }
+
+        matches
     }
 
     fn find_match_inner(&self, text: &str, start_index: usize) -> bool {
