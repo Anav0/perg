@@ -1,8 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::nfa::{
-    alphanumeric, concat, digit, digits, kleen, negative_set_of_chars, set_of_chars, symbol, union,
-    CANNOT_CONCAT_CURRENT_CHAR, CANNOT_CONCAT_PREV_CHAR, CONCAT, KLEEN, NFA, UNION,
+    alphanumeric, concat, digits, kleen, negative_set_of_chars, set_of_chars, symbol, union,
+    CANNOT_CONCAT_CURRENT_CHAR, CANNOT_CONCAT_PREV_CHAR, CHAR_SET_END, CHAR_SET_START, CONCAT,
+    GROUP_END, GROUP_START, KLEEN, NFA, SLASH, UNION,
 };
 
 fn insert_concat_symbol(regex: &str) -> String {
@@ -10,10 +11,10 @@ fn insert_concat_symbol(regex: &str) -> String {
     let mut output: Vec<char> = vec![];
     let mut is_in_char_set = false;
     for c in regex.chars() {
-        if c == '[' {
+        if c == CHAR_SET_START {
             is_in_char_set = true;
         }
-        if c == ']' {
+        if c == CHAR_SET_END {
             is_in_char_set = false;
         }
 
@@ -35,15 +36,20 @@ fn insert_concat_symbol(regex: &str) -> String {
 fn shunting_yard(raw_regex: &str) -> String {
     let mut operators = VecDeque::new();
     let mut output = Vec::new();
-    let precedence: HashMap<char, u8> =
-        HashMap::from([('(', 0), (')', 0), (KLEEN, 4), (UNION, 2), (CONCAT, 3)]);
+    let precedence: HashMap<char, u8> = HashMap::from([
+        (GROUP_START, 0),
+        (GROUP_END, 0),
+        (KLEEN, 4),
+        (UNION, 2),
+        (CONCAT, 3),
+    ]);
 
     let regex = insert_concat_symbol(raw_regex);
 
     let mut is_in_char_set = false;
     for c in regex.chars() {
         match c {
-            ']' => {
+            CHAR_SET_END => {
                 is_in_char_set = false;
                 output.push(c);
             }
@@ -74,20 +80,20 @@ fn shunting_yard(raw_regex: &str) -> String {
                     operators.push_back(c);
                 }
             }
-            '[' => {
+            CHAR_SET_START => {
                 is_in_char_set = true;
                 output.push(c);
             }
 
-            '(' => {
+            GROUP_START => {
                 operators.push_back(c);
             }
-            ')' => loop {
+            GROUP_END => loop {
                 let operator = operators
                     .pop_back()
                     .expect("No more symbols!, cannot find matching parenthesis");
 
-                if operator == '(' {
+                if operator == GROUP_START {
                     break;
                 }
 
@@ -122,7 +128,7 @@ pub fn regex_to_nfa(regex: &str) -> NFA {
                 negation = true;
             }
             '^' => {}
-            ']' => {
+            CHAR_SET_END => {
                 let nfa = if !negation {
                     set_of_chars(&character_set)
                 } else {
@@ -135,10 +141,10 @@ pub fn regex_to_nfa(regex: &str) -> NFA {
             _ if is_in_char_group => {
                 character_set.push(c.unwrap());
             }
-            '[' => {
+            CHAR_SET_START => {
                 is_in_char_group = true;
             }
-            '\\' => {
+            SLASH => {
                 let next_symbol = symbols.peek().expect("Nothing follows '\' symbol");
                 let nfa: Option<NFA> = match *next_symbol {
                     'd' => Some(digits()),
