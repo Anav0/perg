@@ -1,8 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::nfa::{
-    alphanumeric, concat, digit, digits, kleen, set_of_chars, symbol, union, CONCAT, KLEEN, NFA,
-    UNION,
+    alphanumeric, concat, digit, digits, kleen, negative_set_of_chars, set_of_chars, symbol, union,
+    CONCAT, KLEEN, NFA, UNION,
 };
 
 fn insert_concat_symbol(regex: &str) -> String {
@@ -114,12 +114,20 @@ pub fn regex_to_nfa(regex: &str) -> NFA {
     let mut c = symbols.next();
 
     let mut is_in_char_group = false;
+    let mut negation = false;
     let mut character_set: Vec<char> = vec![];
     while c.is_some() {
         match c.unwrap() {
+            '^' if is_in_char_group => {
+                negation = true;
+            }
+            '^' => {}
             ']' => {
-                let nfa = set_of_chars(&character_set);
-                println!("{}", nfa);
+                let nfa = if !negation {
+                    set_of_chars(&character_set)
+                } else {
+                    negative_set_of_chars(&character_set)
+                };
                 nfa_queque.push_back(nfa);
                 character_set.clear();
                 is_in_char_group = false;
@@ -222,6 +230,18 @@ mod tests {
     }
 
     #[test]
+    fn shunting_yard_ignore_negative_character_groups() {
+        let output = shunting_yard("[^abc]");
+        assert_eq!(output, String::from("[^abc]"));
+    }
+
+    #[test]
+    fn shunting_yard_ignore_negative_character_groups_and_nothing_else_1() {
+        let output = shunting_yard("[^abc]a");
+        assert_eq!(output, String::from("[^abc]a?"));
+    }
+
+    #[test]
     fn shunting_yard_ignore_character_groups() {
         let output = shunting_yard("[abc]");
         assert_eq!(output, String::from("[abc]"));
@@ -261,6 +281,18 @@ mod tests {
     fn shunting_yard_union() {
         let output = shunting_yard("a+b");
         assert_eq!(output, String::from("ab+"));
+    }
+
+    #[test]
+    fn regex_to_nfa_negative_character_set() {
+        let nfa = negative_set_of_chars(&vec!['a', 'b']);
+        let outcome = regex_to_nfa("[^ab]");
+
+        let tests = vec!["a", "b", "c", "ab", "ac", "abc", "", "xyz"];
+        for example in tests {
+            println!("{}", example);
+            assert_eq!(nfa.find_match(example), outcome.find_match(example));
+        }
     }
 
     #[test]

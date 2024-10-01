@@ -10,7 +10,7 @@ pub const UNION: char = '+';
 pub const KLEEN: char = '*';
 pub const ANY_DIGIT: char = '#';
 pub const ANY_ALPHANUMERIC: char = '=';
-pub const ANY_CHAR: char = '&';
+pub const ANY_OTHER_CHAR: char = '&';
 
 #[derive(Debug)]
 pub struct Transition {
@@ -156,7 +156,7 @@ impl NFA {
                         states_for_curr_symbol.push(Rc::clone(&transition.to));
                     }
 
-                    if transition.on == ANY_CHAR {
+                    if transition.on == ANY_OTHER_CHAR {
                         any_character_transition = Some(transition);
                     }
 
@@ -216,6 +216,40 @@ impl NFA {
     }
 }
 
+pub fn negative_set_of_chars(chars: &Vec<char>) -> NFA {
+    let initial_state = Rc::new(RefCell::new(State::new(
+        format!("initial"),
+        vec![],
+        StateKind::Initial,
+    )));
+    let final_state = Rc::new(RefCell::new(State::new(
+        format!("final"),
+        vec![],
+        StateKind::Final,
+    )));
+    let failed_state = Rc::new(RefCell::new(State::new(
+        format!("failed"),
+        vec![],
+        StateKind::Failed,
+    )));
+
+    let states = vec![initial_state, final_state, failed_state];
+
+    for c in chars {
+        states[0].borrow_mut().add_transition(*c, &states[2]);
+    }
+
+    states[0]
+        .borrow_mut()
+        .add_transition(ANY_OTHER_CHAR, &states[1]);
+
+    let starting_state = Rc::clone(&states[0]);
+
+    let final_states = vec![Rc::clone(&states[1])];
+
+    NFA::new(states, starting_state, final_states)
+}
+
 pub fn set_of_chars(chars: &Vec<char>) -> NFA {
     /*
     if chars.len() <= 0 {
@@ -255,9 +289,13 @@ pub fn set_of_chars(chars: &Vec<char>) -> NFA {
     }
 
     //From initial to failed
-    states[0].borrow_mut().add_transition(ANY_CHAR, &states[2]);
+    states[0]
+        .borrow_mut()
+        .add_transition(ANY_OTHER_CHAR, &states[2]);
     //from final to failed
-    states[1].borrow_mut().add_transition(ANY_CHAR, &states[2]);
+    states[1]
+        .borrow_mut()
+        .add_transition(ANY_OTHER_CHAR, &states[2]);
 
     let starting_state = Rc::clone(&states[0]);
 
@@ -300,9 +338,13 @@ pub fn symbol(c: char) -> NFA {
     //From initial to final
     states[0].borrow_mut().add_transition(c, &states[1]);
     //From initial to failed
-    states[0].borrow_mut().add_transition(ANY_CHAR, &states[2]);
+    states[0]
+        .borrow_mut()
+        .add_transition(ANY_OTHER_CHAR, &states[2]);
     //from final to failed
-    states[1].borrow_mut().add_transition(ANY_CHAR, &states[2]);
+    states[1]
+        .borrow_mut()
+        .add_transition(ANY_OTHER_CHAR, &states[2]);
 
     let starting_state = Rc::clone(&states[0]);
 
@@ -415,6 +457,24 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn find_match_negative_characters_set() {
+        let nfa = negative_set_of_chars(&vec!['a', 'b']);
+
+        let tests = vec![
+            ("apple", true),
+            ("banana", true),
+            ("ccc", true),
+            ("bbb", false),
+            ("aaa", false),
+        ];
+
+        for (text, expected) in tests {
+            println!("{text} {expected}");
+            let result = nfa.find_match(text);
+            assert_eq!(result, expected);
+        }
+    }
     #[test]
     fn find_match_alphanumeric() {
         let nfa = alphanumeric();
