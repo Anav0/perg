@@ -7,40 +7,25 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'codecrafters-grep'",
+            "name": "Debug executable",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=codecrafters-grep",
-                    "--package=codecrafters-grep"
+                    "--bin=perg",
+                    "--package=perg"
                 ],
                 "filter": {
-                    "name": "codecrafters-grep",
+                    "name": "perg",
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": [
+                "-p",
+                "shunting_yard",
+                "-f",
+                "./src/re.rs"
+            ],
             "cwd": "${workspaceFolder}"
         },
-
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'codecrafters-grep'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=codecrafters-grep",
-                    "--package=codecrafters-grep"
-                ],
-                "filter": {
-                    "name": "codecrafters-grep",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        }
     ]
 }

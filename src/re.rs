@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::nfa::{
     alphanumeric, concat, digit, digits, kleen, negative_set_of_chars, set_of_chars, symbol, union,
-    CONCAT, KLEEN, NFA, UNION,
+    CANNOT_CONCAT_CURRENT_CHAR, CANNOT_CONCAT_PREV_CHAR, CONCAT, KLEEN, NFA, UNION,
 };
 
 fn insert_concat_symbol(regex: &str) -> String {
@@ -16,15 +16,15 @@ fn insert_concat_symbol(regex: &str) -> String {
         if c == ']' {
             is_in_char_set = false;
         }
-        let can_concat = (c == '(' || c.is_alphanumeric()) && !is_in_char_set;
-        let should_concat = can_concat
-            && prev_symbol.is_some_and(|prev_c| {
-                prev_c.is_alphanumeric() || prev_c == KLEEN || prev_c == ')' || prev_c == ']'
-            });
 
-        if should_concat {
+        let can_concat = !is_in_char_set
+            && !CANNOT_CONCAT_CURRENT_CHAR.contains(&c)
+            && prev_symbol.is_some_and(|prev_c| !CANNOT_CONCAT_PREV_CHAR.contains(&prev_c));
+
+        if can_concat {
             output.push(CONCAT);
         }
+
         output.push(c);
         prev_symbol = Some(c);
     }
@@ -194,6 +194,11 @@ mod tests {
     use super::*;
 
     #[test]
+    fn insert_concat_underscore() {
+        assert_eq!("a?_?b", insert_concat_symbol("a_b"));
+    }
+
+    #[test]
     fn insert_concat_no_insert_needed() {
         assert_eq!("a", insert_concat_symbol("a"));
     }
@@ -216,6 +221,16 @@ mod tests {
     #[test]
     fn insert_concat_ignore_char_sets_and_nothing_else() {
         assert_eq!("[abc]?a+b", insert_concat_symbol("[abc]a+b"));
+    }
+
+    #[test]
+    fn insert_concat_decimal() {
+        assert_eq!("\\d", insert_concat_symbol("\\d"));
+    }
+
+    #[test]
+    fn insert_concat_word() {
+        assert_eq!("\\w", insert_concat_symbol("\\w"));
     }
 
     #[test]
@@ -267,14 +282,38 @@ mod tests {
 
     #[test]
     fn shunting_yard_concat_with_char_set() {
-        let output = shunting_yard("[ab]?c");
+        let output = shunting_yard("[ab]c");
         assert_eq!(output, String::from("[ab]c?"));
+    }
+
+    #[test]
+    fn shunting_yard_underscore() {
+        let output = shunting_yard("a_b");
+        assert_eq!(output, String::from("a_?b?"));
+    }
+
+    #[test]
+    fn shunting_yard_long_concat() {
+        let output = shunting_yard("abcdefghijk");
+        assert_eq!(output, String::from("ab?c?d?e?f?g?h?i?j?k?"));
     }
 
     #[test]
     fn shunting_yard_concat() {
         let output = shunting_yard("ab");
         assert_eq!(output, String::from("ab?"));
+    }
+
+    #[test]
+    fn shunting_yard_decimal() {
+        let output = shunting_yard("\\d");
+        assert_eq!(output, String::from("\\d"));
+    }
+
+    #[test]
+    fn shunting_yard_word() {
+        let output = shunting_yard("\\w");
+        assert_eq!(output, String::from("\\w"));
     }
 
     #[test]

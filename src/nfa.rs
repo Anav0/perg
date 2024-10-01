@@ -1,5 +1,7 @@
 use colored::*;
+use lazy_static::lazy_static;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufRead;
 use std::path::PathBuf;
@@ -15,6 +17,47 @@ pub const KLEEN: char = '*';
 pub const ANY_DIGIT: char = '#';
 pub const ANY_ALPHANUMERIC: char = '=';
 pub const ANY_OTHER_CHAR: char = '&';
+pub const SLASH: char = '\\';
+pub const CHAR_SET_START: char = '[';
+pub const CHAR_SET_END: char = ']';
+pub const GROUP_START: char = '(';
+pub const GROUP_END: char = ')';
+
+lazy_static! {
+    pub static ref RESERVED_CHARS: HashSet<char> = {
+        let mut m = HashSet::new();
+        m.insert(EPLISON);
+        m.insert(CONCAT);
+        m.insert(UNION);
+        m.insert(KLEEN);
+        m.insert(ANY_DIGIT);
+        m.insert(ANY_ALPHANUMERIC);
+        m.insert(ANY_OTHER_CHAR);
+        m.insert(SLASH);
+        m.insert(GROUP_START);
+        m.insert(GROUP_END);
+        m.insert(CHAR_SET_END);
+        m.insert(CHAR_SET_START);
+        m
+    };
+    pub static ref CANNOT_CONCAT_PREV_CHAR: HashSet<char> = {
+        let mut m = HashSet::new();
+        m.insert(GROUP_START);
+        m.insert(UNION);
+        m.insert(CHAR_SET_START);
+        m.insert(SLASH);
+        m
+    };
+    pub static ref CANNOT_CONCAT_CURRENT_CHAR: HashSet<char> = {
+        let mut m = HashSet::new();
+        m.insert(CONCAT);
+        m.insert(UNION);
+        m.insert(KLEEN);
+        m.insert(GROUP_END);
+        m.insert(CHAR_SET_END);
+        m
+    };
+}
 
 #[derive(Debug)]
 pub struct Transition {
@@ -123,6 +166,7 @@ impl FileMatch {
         };
 
         for m in &self.matches {
+            println!("{:?}", m);
             let err_msg = format!(
                 "Failed to read line: '{}' from: '{}' line",
                 m.line,
@@ -134,6 +178,7 @@ impl FileMatch {
             let before = &line[..m.from];
             let matched = &line[m.from..m.to];
             let after = &line[m.to..];
+            println!("{}", matched);
             println!(
                 "{:<line_number_col_size$} {}{}{}",
                 (m.line + 1).to_string().green(),
