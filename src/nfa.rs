@@ -96,6 +96,10 @@ pub struct FileMatch {
 
 impl FileMatch {
     pub fn print_matches(&self) {
+        if self.matches.is_empty() {
+            return;
+        }
+
         if self.file_path.is_none() {
             return;
         }
@@ -110,9 +114,13 @@ impl FileMatch {
         let reader = io::BufReader::new(file);
 
         let lines: Vec<_> = reader.lines().collect();
-        let max_match = self.matches.iter().max_by_key(|x| x.line).unwrap();
+        let max_match = self.matches.iter().max_by_key(|x| x.line);
 
-        let line_number_col_size = max_match.line.to_string().len();
+        let line_number_col_size = if max_match.is_some() {
+            max_match.unwrap().line.to_string().len()
+        } else {
+            1
+        };
 
         for m in &self.matches {
             let err_msg = format!(
