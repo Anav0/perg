@@ -120,7 +120,7 @@ impl NFA {
             return self.find_match_inner(text, 0);
         }
 
-        for k in 0..text.len() {
+        for (k, _) in text.char_indices() {
             if self.find_match_inner(&text[k..], k) {
                 return true;
             }
@@ -541,6 +541,26 @@ mod tests {
         println!("{}", nfa);
         nfa.find_match("Co za baba");
         //-------------------0123456789
+    }
+
+    #[test]
+    fn find_match_complex_3() {
+        let nfa = regex_to_nfa("\\d\\dabc");
+
+        let tests = vec![
+            ("01abc", true),
+            ("abc01abc", true),
+            ("12313", false),
+            ("abc", false),
+            ("awjdnakjd", false),
+            ("", false),
+        ];
+
+        for (text, expected) in tests {
+            println!("{text} {expected}");
+            let result = nfa.find_match(text);
+            assert_eq!(result, expected);
+        }
     }
 
     #[test]
