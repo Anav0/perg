@@ -53,7 +53,10 @@ fn main() {
 
     let nfa = regex_to_nfa(&args.pattern);
 
-    for entry in glob(&args.glob).expect("Invalid glob pattern") {
+    let path = PathBuf::from(&args.path);
+
+    for entry in glob(&args.glob, &path).expect("Cannot perform glob search") {
+        println!("{:?}", entry);
         if let Ok(file_path) = entry {
             if let Ok(m) = fs::metadata(&file_path) {
                 if m.is_file() {
