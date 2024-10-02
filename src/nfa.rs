@@ -166,7 +166,6 @@ impl FileMatch {
         };
 
         for m in &self.matches {
-            println!("{:?}", m);
             let err_msg = format!(
                 "Failed to read line: '{}' from: '{}' line",
                 m.line,
@@ -178,7 +177,6 @@ impl FileMatch {
             let before = &line[..m.from];
             let matched = &line[m.from..m.to];
             let after = &line[m.to..];
-            println!("{}", matched);
             println!(
                 "{:<line_number_col_size$} {}{}{}",
                 (m.line + 1).to_string().green(),
