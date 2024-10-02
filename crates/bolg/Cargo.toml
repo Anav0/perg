@@ -1,0 +1,6 @@
+[package]
+name = "bolg"
+version = "0.1.0"
+authors = ["Anav <igormotyka6@gmail.com>"]
+edition = "2021"
+rust-version = "1.80"
