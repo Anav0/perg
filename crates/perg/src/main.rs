@@ -41,8 +41,8 @@ struct Args {
     #[arg(short = 'C', long, default_value_t = 1)]
     context: u8,
 
-    #[arg(short = 'g', long, default_value_t = String::new())]
-    glob: String,
+    #[arg(short = 'g', long, default_values_t = Vec::<String>::new(), num_args=0..)]
+    glob: Vec<String>,
 
     #[arg()]
     path: String,
@@ -55,22 +55,22 @@ fn main() {
 
     let path = PathBuf::from(&args.path);
 
-    for entry in glob(&args.glob, &path).expect("Cannot perform glob search") {
-        println!("{:?}", entry);
-        if let Ok(file_path) = entry {
+    for pattern in &args.glob {
+        for file_path in glob(pattern, &path).expect("Cannot perform glob search") {
             if let Ok(m) = fs::metadata(&file_path) {
-                if m.is_file() {
-                    let input = fs::read_to_string(&file_path).expect(&format!(
-                        "Failed to read input file: '{}'",
-                        file_path.to_str().unwrap()
-                    ));
-                    let matches = nfa.find_matches(&input);
-                    let file_match = FileMatch {
-                        file_path: Some(PathBuf::from(file_path)),
-                        matches,
-                    };
-                    file_match.print_matches();
+                if m.is_dir() {
+                    panic!("Glob returned directory not a file!");
                 }
+                let input = fs::read_to_string(&file_path).expect(&format!(
+                    "Failed to read input file: '{}'",
+                    file_path.to_str().unwrap()
+                ));
+                let matches = nfa.find_matches(&input);
+                let file_match = FileMatch {
+                    file_path: Some(PathBuf::from(file_path)),
+                    matches,
+                };
+                file_match.print_matches();
             }
         }
     }
