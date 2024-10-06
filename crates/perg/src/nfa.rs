@@ -744,7 +744,6 @@ mod tests {
     #[test]
     fn ala_test_2() {
         let nfa = concat(symbol('a'), symbol('b'));
-        println!("{}", nfa);
         nfa.find_match("Co za baba");
         //-------------------0123456789
     }

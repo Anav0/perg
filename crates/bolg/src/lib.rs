@@ -135,7 +135,6 @@ impl<'a> Paths<'a> {
             queque.push_back(PathEntry::Dir(iter));
         }
 
-        println!("{:?}", queque);
         Self {
             pattern_chars: pattern.chars().collect(),
             is_wildcard,
