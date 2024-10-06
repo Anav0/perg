@@ -443,7 +443,7 @@ impl NFA {
     }
 }
 
-pub fn negative_set_of_chars(chars: &Vec<char>) -> NFA {
+pub fn negative_set_of_chars(chars: &Vec<char>, options: &NfaOptions) -> NFA {
     let initial_state = Rc::new(RefCell::new(State::new(
         format!("initial"),
         vec![],
@@ -462,8 +462,19 @@ pub fn negative_set_of_chars(chars: &Vec<char>) -> NFA {
 
     let states = vec![initial_state, final_state, failed_state];
 
-    for c in chars {
-        states[0].borrow_mut().add_transition(*c, &states[2]);
+    if options.ignore_case {
+        for c in chars {
+            states[0]
+                .borrow_mut()
+                .add_transition(naive_lowercase(*c), &states[2]);
+            states[0]
+                .borrow_mut()
+                .add_transition(naive_uppercase(*c), &states[2]);
+        }
+    } else {
+        for c in chars {
+            states[0].borrow_mut().add_transition(*c, &states[2]);
+        }
     }
 
     states[0]
@@ -477,21 +488,7 @@ pub fn negative_set_of_chars(chars: &Vec<char>) -> NFA {
     NFA::new(states, starting_state, final_states)
 }
 
-pub fn set_of_chars(chars: &Vec<char>) -> NFA {
-    /*
-    if chars.len() <= 0 {
-        panic!("Needs at least one char");
-    }
-
-    let mut nfa = symbol(chars[0]);
-
-    for i in 1..chars.len() {
-        nfa = union(nfa, symbol(chars[i]));
-    }
-
-    nfa
-    */
-
+pub fn set_of_chars(chars: &Vec<char>, options: &NfaOptions) -> NFA {
     let initial_state = Rc::new(RefCell::new(State::new(
         format!("initial"),
         vec![],
@@ -510,9 +507,21 @@ pub fn set_of_chars(chars: &Vec<char>) -> NFA {
 
     let states = vec![initial_state, final_state, failed_state];
 
-    for c in chars {
-        //From initial to final
-        states[0].borrow_mut().add_transition(*c, &states[1]);
+    if options.ignore_case {
+        for c in chars {
+            //From initial to final
+            states[0]
+                .borrow_mut()
+                .add_transition(naive_uppercase(*c), &states[1]);
+            states[0]
+                .borrow_mut()
+                .add_transition(naive_lowercase(*c), &states[1]);
+        }
+    } else {
+        for c in chars {
+            //From initial to final
+            states[0].borrow_mut().add_transition(*c, &states[1]);
+        }
     }
 
     //From initial to failed
@@ -545,6 +554,14 @@ pub fn digit() -> NFA {
     symbol(ANY_DIGIT, &opt)
 }
 
+fn naive_uppercase(c: char) -> char {
+    c.to_uppercase().collect::<Vec<_>>()[0]
+}
+
+fn naive_lowercase(c: char) -> char {
+    c.to_lowercase().collect::<Vec<_>>()[0]
+}
+
 pub fn symbol(c: char, options: &NfaOptions) -> NFA {
     let initial_state = Rc::new(RefCell::new(State::new(
         format!("initial_{c}"),
@@ -565,7 +582,17 @@ pub fn symbol(c: char, options: &NfaOptions) -> NFA {
     let states = vec![initial_state, final_state, failed_state];
 
     //From initial to final
-    states[0].borrow_mut().add_transition(c, &states[1]);
+    //TODO: convert transitions so they ternsition on String not on char
+    if options.ignore_case {
+        states[0]
+            .borrow_mut()
+            .add_transition(naive_uppercase(c), &states[1]);
+        states[0]
+            .borrow_mut()
+            .add_transition(naive_lowercase(c), &states[1]);
+    } else {
+        states[0].borrow_mut().add_transition(c, &states[1]);
+    }
     //From initial to failed
     states[0]
         .borrow_mut()
@@ -688,7 +715,8 @@ mod tests {
 
     #[test]
     fn find_match_negative_characters_set() {
-        let nfa = negative_set_of_chars(&vec!['a', 'b']);
+        let opt = NfaOptions::default();
+        let nfa = negative_set_of_chars(&vec!['a', 'b'], &opt);
 
         let tests = vec![
             ("apple", true),
@@ -777,7 +805,7 @@ mod tests {
     #[test]
     fn find_match_complex_3() {
         let opt = NfaOptions::default();
-        let nfa = regex_to_nfa("\\d\\dabc", opt);
+        let nfa = regex_to_nfa("\\d\\dabc", &opt);
 
         let tests = vec![
             ("01abc", true),
@@ -870,6 +898,33 @@ mod tests {
         }
     }
 
+    #[test]
+    fn find_match_single_symbol_ignore_case() {
+        let opt = NfaOptions { ignore_case: true };
+        let nfa = symbol('a', &opt);
+
+        let tests = vec![
+            ("", false),
+            (" ", false),
+            ("a", true),
+            ("A", true),
+            ("AA", true),
+            ("aa", true),
+            ("", false),
+            ("aaa", true),
+            ("aaaa", true),
+            ("aaaaa", true),
+            ("ba", true),
+            ("bba", true),
+            ("bbaa", true),
+        ];
+
+        for (text, expected) in tests {
+            let result = nfa.find_match(text);
+            println!("'{}' expected '{}'", text, expected);
+            assert_eq!(result, expected);
+        }
+    }
     #[test]
     fn find_match_single_symbol() {
         let opt = NfaOptions::default();

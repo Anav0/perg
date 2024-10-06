@@ -130,9 +130,9 @@ pub fn regex_to_nfa(regex: &str, options: &NfaOptions) -> NFA {
             '^' => {}
             CHAR_SET_END => {
                 let nfa = if !negation {
-                    set_of_chars(&character_set)
+                    set_of_chars(&character_set, options)
                 } else {
-                    negative_set_of_chars(&character_set)
+                    negative_set_of_chars(&character_set, options)
                 };
                 nfa_queque.push_back(nfa);
                 character_set.clear();
@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn regex_to_nfa_negative_character_set() {
         let opt = NfaOptions::default();
-        let nfa = negative_set_of_chars(&vec!['a', 'b']);
+        let nfa = negative_set_of_chars(&vec!['a', 'b'], &opt);
         let outcome = regex_to_nfa("[^ab]", &opt);
 
         let tests = vec!["a", "b", "c", "ab", "ac", "abc", "", "xyz"];
@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn regex_to_nfa_character_set() {
         let opt = NfaOptions::default();
-        let nfa = set_of_chars(&vec!['a', 'b', 'c']);
+        let nfa = set_of_chars(&vec!['a', 'b', 'c'], &opt);
         let outcome = regex_to_nfa("[abc]", &opt);
 
         let tests = vec!["a", "b", "c", "ab", "ac", "abc", "", "xyz"];
@@ -379,12 +379,36 @@ mod tests {
     }
 
     #[test]
+    fn regex_to_nfa_single_char_ignore_case() {
+        let opt = NfaOptions { ignore_case: true };
+        let nfa = symbol('a', &opt);
+        let outcome = regex_to_nfa("a", &opt);
+
+        let tests = vec!["aa", "", "a", "bb", "abababa", "A"];
+        for example in tests {
+            assert_eq!(nfa.find_match(example), outcome.find_match(example));
+        }
+    }
+
+    #[test]
     fn regex_to_nfa_single_char() {
         let opt = NfaOptions::default();
         let nfa = symbol('a', &opt);
         let outcome = regex_to_nfa("a", &opt);
 
         let tests = vec!["aa", "", "a", "bb", "abababa"];
+        for example in tests {
+            assert_eq!(nfa.find_match(example), outcome.find_match(example));
+        }
+    }
+
+    #[test]
+    fn regex_to_nfa_ignore_case() {
+        let opt = NfaOptions { ignore_case: true };
+        let nfa = kleen(symbol('a', &opt));
+        let outcome = regex_to_nfa("a*", &opt);
+
+        let tests = vec!["a", "aa", "A", "aaa", "ab", "bbb"];
         for example in tests {
             assert_eq!(nfa.find_match(example), outcome.find_match(example));
         }
