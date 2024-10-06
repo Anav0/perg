@@ -8,6 +8,8 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::{fmt, fs, io};
 
+use crate::Args;
+
 type RcMut<T> = Rc<RefCell<T>>;
 
 pub const EPLISON: char = 'ε';
@@ -114,6 +116,25 @@ impl State {
     pub fn add_transition(&mut self, on: char, to: &RcMut<State>) {
         let transition = Transition::new(on, Rc::clone(to));
         self.transitions.push(transition);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NfaOptions {
+    pub ignore_case: bool,
+}
+
+impl Default for NfaOptions {
+    fn default() -> Self {
+        Self { ignore_case: false }
+    }
+}
+
+impl From<&Args> for NfaOptions {
+    fn from(value: &Args) -> Self {
+        Self {
+            ignore_case: value.ignore_case,
+        }
     }
 }
 
@@ -511,18 +532,20 @@ pub fn set_of_chars(chars: &Vec<char>) -> NFA {
 }
 
 pub fn digits() -> NFA {
-    concat(symbol(ANY_DIGIT), kleen(symbol(ANY_DIGIT)))
+    let opt = NfaOptions { ignore_case: false };
+    concat(symbol(ANY_DIGIT, &opt), kleen(symbol(ANY_DIGIT, &opt)))
 }
 
-pub fn alphanumeric() -> NFA {
-    symbol(ANY_ALPHANUMERIC)
+pub fn alphanumeric(options: &NfaOptions) -> NFA {
+    symbol(ANY_ALPHANUMERIC, options)
 }
 
 pub fn digit() -> NFA {
-    symbol(ANY_DIGIT)
+    let opt = NfaOptions { ignore_case: false };
+    symbol(ANY_DIGIT, &opt)
 }
 
-pub fn symbol(c: char) -> NFA {
+pub fn symbol(c: char, options: &NfaOptions) -> NFA {
     let initial_state = Rc::new(RefCell::new(State::new(
         format!("initial_{c}"),
         vec![],
@@ -683,7 +706,8 @@ mod tests {
     }
     #[test]
     fn find_match_alphanumeric() {
-        let nfa = alphanumeric();
+        let opt = NfaOptions::default();
+        let nfa = alphanumeric(&opt);
 
         let tests = vec![
             ("", false),
@@ -737,20 +761,23 @@ mod tests {
 
     #[test]
     fn ala_test() {
-        let nfa = symbol('b');
+        let opt = NfaOptions::default();
+        let nfa = symbol('b', &opt);
         nfa.find_match("ali baba ali baba");
     }
 
     #[test]
     fn ala_test_2() {
-        let nfa = concat(symbol('a'), symbol('b'));
+        let opt = NfaOptions::default();
+        let nfa = concat(symbol('a', &opt), symbol('b', &opt));
         nfa.find_match("Co za baba");
         //-------------------0123456789
     }
 
     #[test]
     fn find_match_complex_3() {
-        let nfa = regex_to_nfa("\\d\\dabc");
+        let opt = NfaOptions::default();
+        let nfa = regex_to_nfa("\\d\\dabc", opt);
 
         let tests = vec![
             ("01abc", true),
@@ -796,7 +823,8 @@ mod tests {
 
     #[test]
     fn find_match_character_sets() {
-        let nfa = regex_to_nfa("[abc]");
+        let opt = NfaOptions::default();
+        let nfa = regex_to_nfa("[abc]", &opt);
 
         let tests = vec![
             ("a", true),
@@ -820,7 +848,8 @@ mod tests {
     }
     #[test]
     fn find_match_first_symbol() {
-        let nfa = symbol('d');
+        let opt = NfaOptions::default();
+        let nfa = symbol('d', &opt);
 
         let tests = vec![
             ("", false),
@@ -843,7 +872,8 @@ mod tests {
 
     #[test]
     fn find_match_single_symbol() {
-        let nfa = symbol('a');
+        let opt = NfaOptions::default();
+        let nfa = symbol('a', &opt);
 
         let tests = vec![
             ("", false),
@@ -868,7 +898,8 @@ mod tests {
 
     #[test]
     fn find_match_two_symbols() {
-        let nfa = concat(symbol('a'), symbol('b'));
+        let opt = NfaOptions::default();
+        let nfa = concat(symbol('a', &opt), symbol('b', &opt));
 
         let tests = vec![
             ("", false),
@@ -890,7 +921,11 @@ mod tests {
 
     #[test]
     fn find_match_four_symbols() {
-        let nfa = concat(concat(symbol('a'), symbol('b')), symbol('c'));
+        let opt = NfaOptions::default();
+        let nfa = concat(
+            concat(symbol('a', &opt), symbol('b', &opt)),
+            symbol('c', &opt),
+        );
 
         let tests = vec![
             ("abc", true),
@@ -913,10 +948,11 @@ mod tests {
 
     #[test]
     fn find_match_concat_concat() {
+        let opt = NfaOptions::default();
         //abcc
         let nfa = concat(
-            concat(symbol('a'), symbol('b')),
-            concat(symbol('c'), symbol('c')),
+            concat(symbol('a', &opt), symbol('b', &opt)),
+            concat(symbol('c', &opt), symbol('c', &opt)),
         );
 
         let tests = vec![
@@ -940,7 +976,8 @@ mod tests {
 
     #[test]
     fn construction_kleen_test() {
-        let nfa = kleen(symbol('a'));
+        let opt = NfaOptions::default();
+        let nfa = kleen(symbol('a', &opt));
 
         let tests = vec![
             ("c", false),
@@ -964,7 +1001,8 @@ mod tests {
     }
     #[test]
     fn construction_union_test() {
-        let nfa = union(symbol('a'), symbol('b'));
+        let opt = NfaOptions::default();
+        let nfa = union(symbol('a', &opt), symbol('b', &opt));
 
         let tests = vec![
             ("a", true),

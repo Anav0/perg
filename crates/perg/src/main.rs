@@ -1,7 +1,7 @@
 use bolg::glob;
 use clap::{command, Parser};
 use lazy_static::lazy_static;
-use nfa::{FileMatch, NFA};
+use nfa::{FileMatch, NfaOptions, NFA};
 use re::regex_to_nfa;
 use std::{
     collections::HashSet,
@@ -51,7 +51,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let nfa = regex_to_nfa(&args.pattern);
+    let nfa = regex_to_nfa(&args.pattern, &NfaOptions::from(&args));
 
     let path = PathBuf::from(&args.path);
 

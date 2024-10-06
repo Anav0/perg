@@ -2,8 +2,8 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::nfa::{
     alphanumeric, concat, digits, kleen, negative_set_of_chars, set_of_chars, symbol, union,
-    CANNOT_CONCAT_CURRENT_CHAR, CANNOT_CONCAT_PREV_CHAR, CHAR_SET_END, CHAR_SET_START, CONCAT,
-    GROUP_END, GROUP_START, KLEEN, NFA, SLASH, UNION,
+    NfaOptions, CANNOT_CONCAT_CURRENT_CHAR, CANNOT_CONCAT_PREV_CHAR, CHAR_SET_END, CHAR_SET_START,
+    CONCAT, GROUP_END, GROUP_START, KLEEN, NFA, SLASH, UNION,
 };
 
 fn insert_concat_symbol(regex: &str) -> String {
@@ -113,7 +113,7 @@ fn shunting_yard(raw_regex: &str) -> String {
     output.into_iter().collect()
 }
 
-pub fn regex_to_nfa(regex: &str) -> NFA {
+pub fn regex_to_nfa(regex: &str, options: &NfaOptions) -> NFA {
     let normalized = shunting_yard(regex);
     let mut nfa_queque: VecDeque<NFA> = VecDeque::new();
     let mut symbols = normalized.chars().peekable();
@@ -148,7 +148,7 @@ pub fn regex_to_nfa(regex: &str) -> NFA {
                 let next_symbol = symbols.peek().expect("Nothing follows '\' symbol");
                 let nfa: Option<NFA> = match *next_symbol {
                     'd' => Some(digits()),
-                    'w' => Some(alphanumeric()),
+                    'w' => Some(alphanumeric(options)),
                     _ => None,
                 };
 
@@ -183,7 +183,7 @@ pub fn regex_to_nfa(regex: &str) -> NFA {
                 nfa_queque.push_back(union(a, b));
             }
             _ => {
-                nfa_queque.push_back(symbol(c.unwrap()));
+                nfa_queque.push_back(symbol(c.unwrap(), options));
             }
         }
 
@@ -330,8 +330,9 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_negative_character_set() {
+        let opt = NfaOptions::default();
         let nfa = negative_set_of_chars(&vec!['a', 'b']);
-        let outcome = regex_to_nfa("[^ab]");
+        let outcome = regex_to_nfa("[^ab]", &opt);
 
         let tests = vec!["a", "b", "c", "ab", "ac", "abc", "", "xyz"];
         for example in tests {
@@ -342,8 +343,9 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_character_set() {
+        let opt = NfaOptions::default();
         let nfa = set_of_chars(&vec!['a', 'b', 'c']);
-        let outcome = regex_to_nfa("[abc]");
+        let outcome = regex_to_nfa("[abc]", &opt);
 
         let tests = vec!["a", "b", "c", "ab", "ac", "abc", "", "xyz"];
         for example in tests {
@@ -354,8 +356,9 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_alphanumeric() {
-        let nfa = alphanumeric();
-        let outcome = regex_to_nfa("\\w");
+        let opt = NfaOptions::default();
+        let nfa = alphanumeric(&opt);
+        let outcome = regex_to_nfa("\\w", &opt);
 
         let tests = vec!["0", "123", "aa", "", "a", "bb", "abababa"];
         for example in tests {
@@ -365,8 +368,9 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_digits() {
+        let opt = NfaOptions::default();
         let nfa = digits();
-        let outcome = regex_to_nfa("\\d");
+        let outcome = regex_to_nfa("\\d", &opt);
 
         let tests = vec!["0", "123", "aa", "", "a", "bb", "abababa"];
         for example in tests {
@@ -376,8 +380,9 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_single_char() {
-        let nfa = symbol('a');
-        let outcome = regex_to_nfa("a");
+        let opt = NfaOptions::default();
+        let nfa = symbol('a', &opt);
+        let outcome = regex_to_nfa("a", &opt);
 
         let tests = vec!["aa", "", "a", "bb", "abababa"];
         for example in tests {
@@ -387,8 +392,9 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_kleen() {
-        let nfa = kleen(symbol('a'));
-        let outcome = regex_to_nfa("a*");
+        let opt = NfaOptions::default();
+        let nfa = kleen(symbol('a', &opt));
+        let outcome = regex_to_nfa("a*", &opt);
 
         let tests = vec!["a", "aa", "aaa", "ab", "bbb"];
         for example in tests {
@@ -398,16 +404,20 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_complex_2() {
-        let outcome = regex_to_nfa("(0+11+10(00+1)*01)*");
+        let opt = NfaOptions::default();
+        let outcome = regex_to_nfa("(0+11+10(00+1)*01)*", &opt);
         let nfa = kleen(union(
-            symbol('0'),
+            symbol('0', &opt),
             union(
-                concat(symbol('1'), symbol('1')),
+                concat(symbol('1', &opt), symbol('1', &opt)),
                 concat(
-                    concat(symbol('1'), symbol('0')),
+                    concat(symbol('1', &opt), symbol('0', &opt)),
                     concat(
-                        kleen(union(concat(symbol('0'), symbol('0')), symbol('1'))),
-                        concat(symbol('0'), symbol('1')),
+                        kleen(union(
+                            concat(symbol('0', &opt), symbol('0', &opt)),
+                            symbol('1', &opt),
+                        )),
+                        concat(symbol('0', &opt), symbol('1', &opt)),
                     ),
                 ),
             ),
@@ -422,8 +432,12 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_complex() {
-        let nfa = kleen(union(concat(symbol('a'), symbol('b')), symbol('a')));
-        let outcome = regex_to_nfa("(ab+a)*");
+        let opt = NfaOptions::default();
+        let nfa = kleen(union(
+            concat(symbol('a', &opt), symbol('b', &opt)),
+            symbol('a', &opt),
+        ));
+        let outcome = regex_to_nfa("(ab+a)*", &opt);
 
         let tests = vec!["ab", "", "aa", "ababab", "bbbaaa"];
         for example in tests {
