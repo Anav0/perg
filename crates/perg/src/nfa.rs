@@ -122,6 +122,7 @@ impl State {
 #[derive(Clone, Debug)]
 pub struct NfaOptions {
     pub ignore_case: bool,
+    pub count: bool,
     pub context: u32,
 }
 
@@ -129,6 +130,7 @@ impl Default for NfaOptions {
     fn default() -> Self {
         Self {
             ignore_case: false,
+            count: false,
             context: 1,
         }
     }
@@ -138,6 +140,7 @@ impl From<&Args> for NfaOptions {
     fn from(value: &Args) -> Self {
         Self {
             ignore_case: value.ignore_case,
+            count: value.count,
             context: value.context,
         }
     }
@@ -164,6 +167,17 @@ pub struct FileMatch {
 }
 
 impl FileMatch {
+    pub fn print_count(&self) {
+        if self.matches.is_empty() || self.file_path.is_none() {
+            return;
+        }
+
+        let path = self.file_path.as_ref().unwrap();
+
+        println!("{}:{}", path.to_str().unwrap().blue(), self.matches.len());
+
+    }
+
     pub fn print_matches(&self, options: &NfaOptions) {
         if self.matches.is_empty() {
             return;

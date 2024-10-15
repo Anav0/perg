@@ -1,5 +1,6 @@
 #include "f.h"
 
+void Foo0() {}
 void foo1() {}
 void foo2() {}
 void bar3() {}

@@ -72,7 +72,12 @@ fn main() {
                     file_path: Some(PathBuf::from(file_path)),
                     matches,
                 };
-                file_match.print_matches(&options);
+                if options.count {
+                    file_match.print_count();
+                }
+                else {
+                    file_match.print_matches(&options);
+                }
             }
         }
     }
