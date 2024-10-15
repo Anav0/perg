@@ -1,7 +1,7 @@
 use std::{
     collections::VecDeque,
     fs::{self, ReadDir},
-    path::{Iter, Path, PathBuf},
+    path::{Iter, Path, PathBuf, Component},
 };
 
 #[derive(Debug)]
@@ -24,15 +24,32 @@ pub struct Paths<'a> {
     entries_to_process: VecDeque<PathEntry>,
 }
 
+pub fn to_lexical_absolute<P: AsRef<Path>>(p: P) -> std::io::Result<PathBuf> {
+        let path = p.as_ref();
+        let mut absolute = if path.is_absolute() {
+            PathBuf::new()
+        } else {
+            std::env::current_dir()?
+        };
+        for component in path.components() {
+            match component {
+                Component::CurDir => {},
+                Component::ParentDir => { absolute.pop(); },
+                component @ _ => absolute.push(component.as_os_str()),
+            }
+        }
+        Ok(absolute)
+    }
+
 impl<'a> Paths<'a> {
     pub fn matches(&self, path: &PathBuf) -> Result<bool, GlobError> {
         if !path.is_file() {
-            panic!("Non file paths are not yet supported");
+            panic!("Paths to dir are not yet supported");
         }
 
-        let file_name = path.file_name().unwrap();
+        let canon = to_lexical_absolute(path).unwrap();
 
-        let path_chars: Vec<char> = file_name.to_str().unwrap().chars().collect();
+        let path_chars: Vec<char> = canon.to_str().unwrap().chars().collect();
 
         self.matches_ex(0, &mut 0, &path_chars)
     }
