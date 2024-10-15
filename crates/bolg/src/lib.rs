@@ -245,6 +245,26 @@ mod tests {
     }
 
     #[test]
+    fn glob_matches_folder() {
+        let result: Vec<PathBuf> = glob("*\\nested\\*", &PathBuf::from("..\\..\\test_files"))
+            .unwrap()
+            .into_iter()
+            .collect();
+
+        let result_string: Vec<&str> = result.iter().map(|p| p.to_str().unwrap()).collect();
+
+        assert_eq!(
+            result_string,
+            vec![
+                "..\\..\\test_files\\nested\\c.w3c",
+                "..\\..\\test_files\\nested\\d.cpp",
+                "..\\..\\test_files\\nested\\f.cpp",
+                "..\\..\\test_files\\nested\\f.h",
+            ]
+        );
+    }
+
+    #[test]
     fn glob_matches_given_extentions() {
         let result: Vec<PathBuf> = glob("*.[abc]", &PathBuf::from("..\\..\\test_files"))
             .unwrap()
