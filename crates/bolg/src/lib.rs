@@ -286,17 +286,13 @@ mod tests {
     }
 
     #[test]
-    fn glob_print_only_txt_files() {
-        let result: Vec<PathBuf> = glob("*.txt", &PathBuf::from("..\\..\\test_files"))
+    fn glob_print_only_h_files() {
+        let result: Vec<PathBuf> = glob("*.h", &PathBuf::from("..\\..\\test_files"))
             .unwrap()
             .into_iter()
             .collect();
 
         let result_string: Vec<&str> = result.iter().map(|p| p.to_str().unwrap()).collect();
-
-        assert_eq!(
-            result_string,
-            vec!["..\\..\\test_files\\a.txt", "..\\..\\test_files\\b.txt"]
-        );
+        assert_eq!(result_string, vec!["..\\..\\test_files\\nested\\f.h"]);
     }
 }

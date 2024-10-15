@@ -1,14 +1,14 @@
 use colored::*;
 use lazy_static::lazy_static;
+use std::collections::{BTreeMap, HashSet};
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufRead;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::{fmt, fs, io};
 
-use crate::Args;
+use crate::{misc, Args};
 
 type RcMut<T> = Rc<RefCell<T>>;
 
@@ -122,11 +122,15 @@ impl State {
 #[derive(Clone, Debug)]
 pub struct NfaOptions {
     pub ignore_case: bool,
+    pub context: u32,
 }
 
 impl Default for NfaOptions {
     fn default() -> Self {
-        Self { ignore_case: false }
+        Self {
+            ignore_case: false,
+            context: 1,
+        }
     }
 }
 
@@ -134,6 +138,7 @@ impl From<&Args> for NfaOptions {
     fn from(value: &Args) -> Self {
         Self {
             ignore_case: value.ignore_case,
+            context: value.context,
         }
     }
 }
@@ -159,7 +164,7 @@ pub struct FileMatch {
 }
 
 impl FileMatch {
-    pub fn print_matches(&self) {
+    pub fn print_matches(&self, options: &NfaOptions) {
         if self.matches.is_empty() {
             return;
         }
@@ -186,6 +191,7 @@ impl FileMatch {
             1
         };
 
+        let mut lines_to_print: BTreeMap<usize, String> = BTreeMap::new();
         for m in &self.matches {
             let err_msg = format!(
                 "Failed to read line: '{}' from: '{}' line",
@@ -193,18 +199,49 @@ impl FileMatch {
                 path.to_str().unwrap(),
             );
 
-            let line = lines[m.line].as_ref().expect(&err_msg);
-
-            let before = &line[..m.from];
-            let matched = &line[m.from..m.to];
-            let after = &line[m.to..];
-            println!(
-                "{:<line_number_col_size$} {}{}{}",
-                (m.line + 1).to_string().green(),
-                before,
-                matched.red(),
-                after
+            let low = misc::clamp(
+                m.line as isize - options.context as isize,
+                0 as isize,
+                (lines.len() - 1) as isize,
             );
+
+            let low = low as usize;
+            let high = misc::clamp(m.line + options.context as usize, 0, lines.len() - 1);
+
+            let line = lines[m.line].as_ref().expect(&err_msg);
+            let before  = &line[..m.from];
+            let matched = &line[m.from..m.to];
+            let after   = &line[m.to..];
+
+            let mut counter = low;
+            for l in &lines[low..=high] {
+                if counter == m.line {
+                    let formatted_line = 
+                    format!(
+                        "{:<line_number_col_size$} {}{}{}",
+                        (m.line + 1).to_string().green(),
+                        before,
+                        matched.red(),
+                        after
+                    );
+                    lines_to_print.insert(counter, formatted_line);
+                } else {
+                    if !lines_to_print.contains_key(&counter) {
+                        let formatted_line = format!(
+                            "{:<line_number_col_size$} {}",
+                             (counter + 1).to_string().green(),
+                             l.as_ref().unwrap()
+                        );
+                        lines_to_print.insert(counter, formatted_line);
+                    }
+                }
+
+                counter += 1;
+            }
+        }
+
+        for (_, formatted_line) in lines_to_print {
+            println!("{formatted_line}");
         }
     }
 }
@@ -541,7 +578,8 @@ pub fn set_of_chars(chars: &Vec<char>, options: &NfaOptions) -> NFA {
 }
 
 pub fn digits() -> NFA {
-    let opt = NfaOptions { ignore_case: false };
+    let mut opt = NfaOptions::default();
+    opt.ignore_case = true;
     concat(symbol(ANY_DIGIT, &opt), kleen(symbol(ANY_DIGIT, &opt)))
 }
 
@@ -550,7 +588,8 @@ pub fn alphanumeric(options: &NfaOptions) -> NFA {
 }
 
 pub fn digit() -> NFA {
-    let opt = NfaOptions { ignore_case: false };
+    let mut opt = NfaOptions::default();
+    opt.ignore_case = true;
     symbol(ANY_DIGIT, &opt)
 }
 
@@ -900,7 +939,8 @@ mod tests {
 
     #[test]
     fn find_match_single_symbol_ignore_case() {
-        let opt = NfaOptions { ignore_case: true };
+        let mut opt = NfaOptions::default();
+        opt.ignore_case = true;
         let nfa = symbol('a', &opt);
 
         let tests = vec![

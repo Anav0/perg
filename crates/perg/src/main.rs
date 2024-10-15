@@ -9,6 +9,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod misc;
 mod nfa;
 mod re;
 
@@ -39,7 +40,7 @@ struct Args {
     pattern: String,
 
     #[arg(short = 'C', long, default_value_t = 1)]
-    context: u8,
+    context: u32,
 
     #[arg(short = 'g', long, default_values_t = Vec::<String>::new(), num_args=0..)]
     glob: Vec<String>,
@@ -51,7 +52,8 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let nfa = regex_to_nfa(&args.pattern, &NfaOptions::from(&args));
+    let options = NfaOptions::from(&args);
+    let nfa = regex_to_nfa(&args.pattern, &options);
 
     let path = PathBuf::from(&args.path);
 
@@ -70,7 +72,7 @@ fn main() {
                     file_path: Some(PathBuf::from(file_path)),
                     matches,
                 };
-                file_match.print_matches();
+                file_match.print_matches(&options);
             }
         }
     }

@@ -380,7 +380,8 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_single_char_ignore_case() {
-        let opt = NfaOptions { ignore_case: true };
+        let mut opt = NfaOptions::default();
+        opt.ignore_case = true;
         let nfa = symbol('a', &opt);
         let outcome = regex_to_nfa("a", &opt);
 
@@ -404,7 +405,9 @@ mod tests {
 
     #[test]
     fn regex_to_nfa_ignore_case() {
-        let opt = NfaOptions { ignore_case: true };
+        let mut opt = NfaOptions::default();
+        opt.ignore_case = true;
+        opt.ignore_case = true;
         let nfa = kleen(symbol('a', &opt));
         let outcome = regex_to_nfa("a*", &opt);
 
