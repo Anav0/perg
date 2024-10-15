@@ -23,15 +23,12 @@
                 "-C",
                 "2",
                 "-g",
-                "*.h",
-                "-g",
-                "*.cpp",
+                "*\\nested\\*",
                 "-p",
-                "void",
-                "./test_files",
+                "foo",
+                ".\\test_files",
             ],
             "cwd": "${workspaceFolder}"
         },
-
     ]
 }

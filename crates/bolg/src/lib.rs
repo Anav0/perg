@@ -24,30 +24,13 @@ pub struct Paths<'a> {
     entries_to_process: VecDeque<PathEntry>,
 }
 
-pub fn to_lexical_absolute<P: AsRef<Path>>(p: P) -> std::io::Result<PathBuf> {
-        let path = p.as_ref();
-        let mut absolute = if path.is_absolute() {
-            PathBuf::new()
-        } else {
-            std::env::current_dir()?
-        };
-        for component in path.components() {
-            match component {
-                Component::CurDir => {},
-                Component::ParentDir => { absolute.pop(); },
-                component @ _ => absolute.push(component.as_os_str()),
-            }
-        }
-        Ok(absolute)
-    }
-
 impl<'a> Paths<'a> {
     pub fn matches(&self, path: &PathBuf) -> Result<bool, GlobError> {
         if !path.is_file() {
             panic!("Paths to dir are not yet supported");
         }
 
-        let canon = to_lexical_absolute(path).unwrap();
+        let canon = path;
 
         let path_chars: Vec<char> = canon.to_str().unwrap().chars().collect();
 
@@ -60,7 +43,13 @@ impl<'a> Paths<'a> {
         text_idx: &mut usize,
         text: &Vec<char>,
     ) -> Result<bool, GlobError> {
+
         while pattern_idx < self.pattern_chars.len() && *text_idx < text.len() {
+
+        if pattern_idx == self.pattern_chars.len()-1 && self.pattern_chars[pattern_idx] == '*' {
+            return Ok(true);
+        }
+
             match self.pattern_chars[pattern_idx] {
                 '*' => {
                     if self
@@ -285,7 +274,7 @@ mod tests {
 
     #[test]
     fn glob_exact_match() {
-        let result: Vec<PathBuf> = glob("f.h", &PathBuf::from("..\\..\\test_files"))
+        let result: Vec<PathBuf> = glob("..\\..\\test_files\\nested\\f.h", &PathBuf::from("..\\..\\test_files"))
             .unwrap()
             .into_iter()
             .collect();
@@ -297,7 +286,7 @@ mod tests {
 
     #[test]
     fn glob_question_mark_skipes_two_chars() {
-        let result: Vec<PathBuf> = glob("a??a", &PathBuf::from("..\\..\\test_files"))
+        let result: Vec<PathBuf> = glob("..\\..\\test_files\\a??a", &PathBuf::from("..\\..\\test_files"))
             .unwrap()
             .into_iter()
             .collect();
@@ -312,7 +301,7 @@ mod tests {
 
     #[test]
     fn glob_question_mark_skipes_one_chars() {
-        let result: Vec<PathBuf> = glob("a????", &PathBuf::from("..\\..\\test_files"))
+        let result: Vec<PathBuf> = glob("*a????", &PathBuf::from("..\\..\\test_files"))
             .unwrap()
             .into_iter()
             .collect();
