@@ -195,6 +195,17 @@ impl<'a> Iterator for Paths<'a> {
     }
 }
 
+/*
+ * Jeśli mamy dużo plików, to chcemy oddelegować wyszukiwanie na osobny wątek.
+ * Jeśli mamy np. 128 plików i 8 wątków to każdy wątek powinien przeszukać 16 plików.
+ *
+ * Wymaga to kopii NFA per wątek
+ *
+ * Jeśli nie mamy dużej ilości plików - mniej niż 8 - to nie ma potrzeby uruchamiania osobnych wątków
+ *
+ *
+ */
+
 pub fn glob<'a>(pattern: &'a str, path: &'a PathBuf) -> Result<Paths<'a>, GlobError> {
     if !path.exists() {
         return Err(GlobError {
